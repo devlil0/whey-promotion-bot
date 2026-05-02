@@ -70,7 +70,8 @@ public class PromotionService {
                     avg.setScale(2, RoundingMode.HALF_UP),
                     discount,
                     score.getCostPerProteinGram(),
-                    offer.getProductUrl()
+                    offer.getProductUrl(),
+                    offer.getImageUrl()
             ));
         }
 

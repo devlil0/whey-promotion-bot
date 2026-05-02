@@ -10,5 +10,6 @@ public record PromotionAlert(
         BigDecimal averagePrice,
         BigDecimal discountPercent,
         BigDecimal pricePerProteinGram,
-        String productUrl
+        String productUrl,
+        String imageUrl
 ) {}

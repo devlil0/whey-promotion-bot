@@ -57,4 +57,11 @@ public class PriceCollectionScheduler {
             telegramService.sendPromotions(promotions);
         }
     }
+
+    @Scheduled(cron = "0 5 8 * * *", zone = "America/Sao_Paulo")
+    public void sendDailyRanking() {
+        log.info("Enviando ranking diário ao Telegram — {}", LocalDateTime.now());
+        List<RankingItemResponse> ranking = rankingService.getRanking(10, null);
+        telegramService.sendRanking(ranking);
+    }
 }
