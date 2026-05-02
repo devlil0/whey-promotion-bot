@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: whey_promotion_bot
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/whey_db}
+    username: ${SPRING_DATASOURCE_USERNAME:whey_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:whey_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8080
+
+growth:
+  api:
+    base-url: https://www.gsuplementos.com.br
+    app-token: wapstore
+
+darklab:
+  api:
+    base-url: https://darklabsuplementos.com.br
+
+profitlabs:
+  api:
+    base-url: https://profitlabs.commercesuite.com.br
+
+external:
+  api:
+    connect-timeout-ms: 10000
+    response-timeout-ms: 20000

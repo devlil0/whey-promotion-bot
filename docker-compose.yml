@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: whey_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: whey_db
+      POSTGRES_USER: whey_user
+      POSTGRES_PASSWORD: whey_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whey_user -d whey_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  whey_promotion_bot:
+    build: .
+    container_name: whey_promotion_bot
+    ports:
+      - "8080:8080"
+    environment:
+      - GROWTH_API_APP_TOKEN=wapstore
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/whey_db
+      - SPRING_DATASOURCE_USERNAME=whey_user
+      - SPRING_DATASOURCE_PASSWORD=whey_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
