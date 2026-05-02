@@ -35,3 +35,16 @@ external:
   api:
     connect-timeout-ms: 10000
     response-timeout-ms: 20000
+
+telegram:
+  bot-token: ${TELEGRAM_BOT_TOKEN:}
+  chat-id: ${TELEGRAM_CHAT_ID:-5080521415}
+
+mercadolivre:
+  api:
+    base-url: https://api.mercadolibre.com
+
+promotion:
+  discount-threshold: 0.15
+  history-days: 7
+  min-history-samples: 3

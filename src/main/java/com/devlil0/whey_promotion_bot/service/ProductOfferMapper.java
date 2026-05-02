@@ -176,6 +176,87 @@ public class ProductOfferMapper {
         return offers;
     }
 
+    public List<ProductOfferResponse> fromMercadoLivre(JsonNode response) {
+        List<ProductOfferResponse> offers = new ArrayList<>();
+        JsonNode results = response.path("results");
+        if (!results.isArray()) return offers;
+
+        for (JsonNode item : results) {
+            if (!"new".equals(item.path("condition").asText())) continue;
+
+            String title = JsonHelper.text(item, "title");
+            if (!ProductFilter.isWheyMainRankingCandidate(title)) continue;
+
+            int qty = item.path("available_quantity").asInt(0);
+            if (qty <= 0) continue;
+
+            BigDecimal price = item.path("price").isNumber()
+                    ? item.path("price").decimalValue() : null;
+            if (price == null || price.compareTo(MIN_ML_PRICE) < 0) continue;
+
+            String powerSeller = item.path("seller").path("power_seller_status").asText(null);
+            if (powerSeller == null || powerSeller.isBlank() || "null".equalsIgnoreCase(powerSeller)) continue;
+
+            String brand = mlAttribute(item, "BRAND");
+            if (brand == null || brand.isBlank()) continue;
+            String titleNorm = ProductFilter.normalize(title);
+            if (!titleNorm.contains(ProductFilter.normalize(brand))) continue;
+
+            String weightAttr = mlAttribute(item, "NET_WEIGHT");
+            Integer weightGrams = parseMlWeightGrams(weightAttr);
+            if (weightGrams == null) weightGrams = extractWeightInGrams(title);
+
+            BigDecimal oldPrice = item.path("original_price").isNumber()
+                    ? item.path("original_price").decimalValue() : null;
+
+            offers.add(new ProductOfferResponse(
+                    "MERCADO_LIVRE",
+                    JsonHelper.text(item, "id"),
+                    null,
+                    null,
+                    title,
+                    brand,
+                    "Whey Protein",
+                    price,
+                    null,
+                    oldPrice,
+                    true,
+                    qty,
+                    weightGrams,
+                    item.path("permalink").asText(null),
+                    item.path("thumbnail").asText(null),
+                    "ML_SEARCH_API"
+            ));
+        }
+
+        return offers;
+    }
+
+    private static final BigDecimal MIN_ML_PRICE = new BigDecimal("50");
+
+    private String mlAttribute(JsonNode item, String attributeId) {
+        JsonNode attributes = item.path("attributes");
+        if (!attributes.isArray()) return null;
+        for (JsonNode attr : attributes) {
+            if (attributeId.equals(attr.path("id").asText())) {
+                String val = attr.path("value_name").asText(null);
+                return (val == null || val.isBlank()) ? null : val;
+            }
+        }
+        return null;
+    }
+
+    private Integer parseMlWeightGrams(String weightStr) {
+        if (weightStr == null) return null;
+        String s = weightStr.toLowerCase().replace(",", ".").trim();
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(\\d+(?:\\.\\d+)?)\\s*(kg|g)")
+                .matcher(s);
+        if (!m.find()) return null;
+        double value = Double.parseDouble(m.group(1));
+        return m.group(2).equals("kg") ? (int) Math.round(value * 1000) : (int) Math.round(value);
+    }
+
     private JsonNode cheapestAvailableVariant(JsonNode variants) {
         if (!variants.isArray()) return null;
 

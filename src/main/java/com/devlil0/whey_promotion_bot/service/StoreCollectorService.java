@@ -3,8 +3,11 @@ package com.devlil0.whey_promotion_bot.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.devlil0.whey_promotion_bot.client.DarkLabClient;
 import com.devlil0.whey_promotion_bot.client.GrowthClient;
+import com.devlil0.whey_promotion_bot.client.MercadoLivreClient;
 import com.devlil0.whey_promotion_bot.client.ProfitLabsClient;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -13,20 +16,25 @@ import java.util.List;
 @Service
 public class StoreCollectorService {
 
+    private static final Logger log = LoggerFactory.getLogger(StoreCollectorService.class);
+
     private final GrowthClient growthClient;
     private final DarkLabClient darkLabClient;
     private final ProfitLabsClient profitLabsClient;
+    private final MercadoLivreClient mercadoLivreClient;
     private final ProductOfferMapper mapper;
 
     public StoreCollectorService(
             GrowthClient growthClient,
             DarkLabClient darkLabClient,
             ProfitLabsClient profitLabsClient,
+            MercadoLivreClient mercadoLivreClient,
             ProductOfferMapper mapper
     ) {
         this.growthClient = growthClient;
         this.darkLabClient = darkLabClient;
         this.profitLabsClient = profitLabsClient;
+        this.mercadoLivreClient = mercadoLivreClient;
         this.mapper = mapper;
     }
 
@@ -101,6 +109,24 @@ public class StoreCollectorService {
         return offers;
     }
 
+    public List<ProductOfferResponse> collectMercadoLivreOffers() {
+        List<ProductOfferResponse> offers = new ArrayList<>();
+        int limit = 50;
+        int maxPages = 3;
+
+        for (int page = 0; page < maxPages; page++) {
+            JsonNode response = mercadoLivreClient.searchWheyProtein(limit, page * limit);
+            List<ProductOfferResponse> page_offers = mapper.fromMercadoLivre(response);
+            if (page_offers.isEmpty()) break;
+            offers.addAll(page_offers);
+
+            int total = response.path("paging").path("total").asInt(0);
+            if (offers.size() >= total) break;
+        }
+
+        return offers;
+    }
+
     public List<ProductOfferResponse> collectAllWheyOffers() {
         List<ProductOfferResponse> offers = new ArrayList<>();
 
@@ -119,6 +145,12 @@ public class StoreCollectorService {
 
         offers.addAll(collectDarkLabOffers());
         offers.addAll(collectProfitLabsOffers());
+
+        try {
+            offers.addAll(collectMercadoLivreOffers());
+        } catch (Exception e) {
+            log.warn("Coleta Mercado Livre falhou, continuando sem ela: {}", e.getMessage());
+        }
 
         return offers;
     }
