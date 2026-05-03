@@ -1,8 +1,9 @@
 package com.devlil0.whey_promotion_bot.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.devlil0.whey_promotion_bot.client.MercadoLivreClient;
 import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
+import com.devlil0.whey_promotion_bot.entity.ProductOffer;
+import com.devlil0.whey_promotion_bot.repository.ProductOfferRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -11,7 +12,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,89 +25,43 @@ public class MlCostBenefitService {
 
     private static final BigDecimal MIN_PRICE = new BigDecimal("50");
 
-    // "Proteínas: 24g", "Proteína: 24 g", "Proteína - 24g"
     private static final Pattern PROTEIN_PER_SERVING = Pattern.compile(
             "(?i)prote[íi]nas?\\s*[:\\-]?\\s*(\\d+(?:[,.]\\d+)?)\\s*g");
-
-    // "30 doses", "Rendimento: 30", "30 porções"
     private static final Pattern SERVINGS_INLINE = Pattern.compile(
             "(?i)(\\d+)\\s*doses?");
     private static final Pattern SERVINGS_LABEL = Pattern.compile(
             "(?i)rendimento[^\\d]*(\\d+)");
     private static final Pattern SERVINGS_PORCOES = Pattern.compile(
             "(?i)(\\d+)\\s*por[çc][oõ]es?");
-
-    // "Proteína Total: 720g", "Total de Proteínas: 720g"
     private static final Pattern TOTAL_PROTEIN = Pattern.compile(
             "(?i)(?:prote[íi]nas?\\s+total|total\\s+(?:de\\s+)?prote[íi]nas?)[^\\d]*(\\d+(?:[,.]\\d+)?)\\s*g");
 
-    // NET_WEIGHT attribute parsing: "900 g", "1,8 kg"
-    private static final Pattern WEIGHT_PATTERN = Pattern.compile(
-            "(\\d+(?:[,.]\\d+)?)\\s*(kg|g)", Pattern.CASE_INSENSITIVE);
-
     private final MercadoLivreClient mlClient;
+    private final ProductOfferRepository offerRepository;
 
-    public MlCostBenefitService(MercadoLivreClient mlClient) {
+    public MlCostBenefitService(MercadoLivreClient mlClient, ProductOfferRepository offerRepository) {
         this.mlClient = mlClient;
-    }
-
-    public List<java.util.Map<String, Object>> diagnose() {
-        JsonNode response;
-        try {
-            response = mlClient.searchWhey(5);
-        } catch (Exception e) {
-            return List.of(java.util.Map.of("error", e.getMessage()));
-        }
-
-        JsonNode results = response.path("results");
-        if (!results.isArray()) return List.of(java.util.Map.of("error", "no results array"));
-
-        List<java.util.Map<String, Object>> report = new ArrayList<>();
-        for (JsonNode item : results) {
-            java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
-            String itemId = item.path("id").asText("?");
-            String title = item.path("title").asText("?");
-            entry.put("id", itemId);
-            entry.put("title", title);
-            entry.put("condition", item.path("condition").asText());
-            entry.put("price", item.path("price").asDouble());
-            entry.put("passesWheyFilter", ProductFilter.isWheyMainRankingCandidate(title));
-
-            String description = mlClient.getItemDescription(itemId);
-            entry.put("descriptionNull", description == null);
-            if (description != null) {
-                entry.put("descriptionSnippet", description.length() > 600 ? description.substring(0, 600) : description);
-                entry.put("proteinPerServingFound", parseProteinPerServing(description) != null ? parseProteinPerServing(description) : "not found");
-                entry.put("servingsFound", parseServings(description) != null ? parseServings(description) : "not found");
-                entry.put("totalProteinFound", parseTotalProtein(description) != null ? parseTotalProtein(description) : "not found");
-            }
-            report.add(entry);
-        }
-        return report;
+        this.offerRepository = offerRepository;
     }
 
     public List<MlProductRanking> getTop3() {
-        JsonNode response;
-        try {
-            response = mlClient.searchWhey(20);
-        } catch (Exception e) {
-            log.error("Falha ao buscar produtos ML para Top 3: {} — causa: {}",
-                    e.getMessage(), e.getCause() != null ? e.getCause().getMessage() : "sem causa");
+        List<ProductOffer> mlOffers = offerRepository.findByStore("MERCADO_LIVRE");
+        if (mlOffers.isEmpty()) {
+            log.warn("Nenhum produto ML no banco — coleta ainda não foi executada?");
             return List.of();
         }
 
-        JsonNode results = response.path("results");
-        if (!results.isArray()) return List.of();
-
         List<MlProductRanking> ranked = new ArrayList<>();
-        for (JsonNode item : results) {
+        for (ProductOffer offer : mlOffers) {
             try {
-                MlProductRanking r = processItem(item);
+                MlProductRanking r = processOffer(offer);
                 if (r != null) ranked.add(r);
             } catch (Exception e) {
-                log.warn("Falha ao processar item ML {}: {}", item.path("id").asText("?"), e.getMessage());
+                log.warn("Falha ao processar ML externalId={}: {}", offer.getExternalId(), e.getMessage());
             }
         }
+
+        log.info("ML Top 3: {}/{} produtos com dados de proteína suficientes", ranked.size(), mlOffers.size());
 
         List<MlProductRanking> top3 = ranked.stream()
                 .sorted(Comparator.comparing(MlProductRanking::costPerProteinGram))
@@ -124,26 +81,38 @@ public class MlCostBenefitService {
         return result;
     }
 
-    private MlProductRanking processItem(JsonNode item) {
-        if (!"new".equals(item.path("condition").asText())) return null;
+    public List<Map<String, Object>> diagnose() {
+        List<ProductOffer> mlOffers = offerRepository.findByStore("MERCADO_LIVRE");
+        if (mlOffers.isEmpty()) {
+            return List.of(Map.of("error", "Nenhum produto ML no banco"));
+        }
 
-        String title = item.path("title").asText(null);
-        if (title == null || !ProductFilter.isWheyMainRankingCandidate(title)) return null;
+        List<Map<String, Object>> report = new ArrayList<>();
+        for (ProductOffer offer : mlOffers.stream().limit(5).toList()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("externalId", offer.getExternalId());
+            entry.put("name", offer.getName());
+            entry.put("price", offer.getPrice());
+            entry.put("weightGrams", offer.getWeightGrams());
 
-        BigDecimal price = item.path("price").isNumber() ? item.path("price").decimalValue() : null;
-        if (price == null || price.compareTo(MIN_PRICE) < 0) return null;
+            String description = mlClient.getItemDescription(offer.getExternalId());
+            entry.put("descriptionNull", description == null);
+            if (description != null) {
+                entry.put("descriptionSnippet", description.length() > 600 ? description.substring(0, 600) : description);
+                entry.put("proteinPerServingFound", parseProteinPerServing(description) != null ? parseProteinPerServing(description) : "not found");
+                entry.put("servingsFound", parseServings(description) != null ? parseServings(description) : "not found");
+                entry.put("totalProteinFound", parseTotalProtein(description) != null ? parseTotalProtein(description) : "not found");
+            }
+            report.add(entry);
+        }
+        return report;
+    }
 
-        String itemId = item.path("id").asText(null);
-        if (itemId == null) return null;
+    private MlProductRanking processOffer(ProductOffer offer) {
+        if (offer.getExternalId() == null) return null;
+        if (offer.getPrice() == null || offer.getPrice().compareTo(MIN_PRICE) < 0) return null;
 
-        String brand = mlAttribute(item, "BRAND");
-        String imageUrl = item.path("thumbnail").asText(null);
-        String productUrl = item.path("permalink").asText(null);
-
-        Integer weightGrams = parseWeightGrams(mlAttribute(item, "NET_WEIGHT"));
-        if (weightGrams == null) weightGrams = extractWeightFromTitle(title);
-
-        String description = mlClient.getItemDescription(itemId);
+        String description = mlClient.getItemDescription(offer.getExternalId());
         if (description == null || description.isBlank()) return null;
 
         BigDecimal totalProtein = parseTotalProtein(description);
@@ -156,14 +125,18 @@ public class MlCostBenefitService {
 
         if (totalProtein.compareTo(BigDecimal.ZERO) <= 0) return null;
 
-        BigDecimal costPerProteinGram = price.divide(totalProtein, 4, RoundingMode.HALF_UP);
+        BigDecimal costPerProteinGram = offer.getPrice().divide(totalProtein, 4, RoundingMode.HALF_UP);
 
         return new MlProductRanking(
-                0, title,
-                brand != null ? brand : "Mercado Livre",
-                price, weightGrams, totalProtein,
+                0,
+                offer.getName(),
+                offer.getBrand() != null ? offer.getBrand() : "Mercado Livre",
+                offer.getPrice(),
+                offer.getWeightGrams(),
+                totalProtein,
                 costPerProteinGram,
-                productUrl, imageUrl
+                offer.getProductUrl(),
+                offer.getImageUrl()
         );
     }
 
@@ -183,36 +156,6 @@ public class MlCostBenefitService {
             if (m.find()) {
                 int val = Integer.parseInt(m.group(1));
                 if (val > 1) return val;
-            }
-        }
-        return null;
-    }
-
-    private Integer parseWeightGrams(String weightStr) {
-        if (weightStr == null) return null;
-        String s = weightStr.toLowerCase().replace(",", ".");
-        Matcher m = WEIGHT_PATTERN.matcher(s);
-        if (!m.find()) return null;
-        double value = Double.parseDouble(m.group(1));
-        return m.group(2).equalsIgnoreCase("kg") ? (int) Math.round(value * 1000) : (int) Math.round(value);
-    }
-
-    private Integer extractWeightFromTitle(String title) {
-        if (title == null) return null;
-        String normalized = title.toLowerCase().replace(",", ".");
-        Matcher m = WEIGHT_PATTERN.matcher(normalized);
-        if (!m.find()) return null;
-        double value = Double.parseDouble(m.group(1));
-        return m.group(2).equalsIgnoreCase("kg") ? (int) Math.round(value * 1000) : (int) Math.round(value);
-    }
-
-    private String mlAttribute(JsonNode item, String attributeId) {
-        JsonNode attributes = item.path("attributes");
-        if (!attributes.isArray()) return null;
-        for (JsonNode attr : attributes) {
-            if (attributeId.equals(attr.path("id").asText())) {
-                String val = attr.path("value_name").asText(null);
-                return (val == null || val.isBlank()) ? null : val;
             }
         }
         return null;

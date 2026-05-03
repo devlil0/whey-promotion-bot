@@ -39,29 +39,6 @@ public class MercadoLivreClient {
         }
     }
 
-    public JsonNode searchWhey(int limit) {
-        try {
-            return webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/sites/MLB/search")
-                            .queryParam("q", "whey protein")
-                            .queryParam("limit", limit)
-                            .build())
-                    .retrieve()
-                    .onStatus(status -> status.isError(), response ->
-                            response.bodyToMono(String.class).map(body -> {
-                                log.error("ML API erro {}: {}", response.statusCode(), body);
-                                return new ExternalApiException("ML API retornou " + response.statusCode());
-                            }))
-                    .bodyToMono(JsonNode.class)
-                    .block();
-        } catch (Exception e) {
-            log.error("Falha em searchWhey: {} — causa: {}", e.getMessage(),
-                    e.getCause() != null ? e.getCause().getMessage() : "sem causa");
-            throw new ExternalApiException("Falha ao buscar whey no Mercado Livre", e);
-        }
-    }
-
     public String getItemDescription(String itemId) {
         try {
             JsonNode response = webClient.get()
