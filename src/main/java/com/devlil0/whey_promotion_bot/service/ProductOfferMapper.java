@@ -301,10 +301,10 @@ public class ProductOfferMapper {
         JsonNode images = product.path("midias").path("imagens");
         if (images.isArray() && images.size() > 0) {
             JsonNode files = images.get(0).path("arquivos");
+            if (files.hasNonNull("zoom"))   return files.path("zoom").asText();
+            if (files.hasNonNull("big"))    return files.path("big").asText();
             if (files.hasNonNull("medium")) return files.path("medium").asText();
-            if (files.hasNonNull("big")) return files.path("big").asText();
-            if (files.hasNonNull("zoom")) return files.path("zoom").asText();
-            if (files.hasNonNull("small")) return files.path("small").asText();
+            if (files.hasNonNull("small"))  return files.path("small").asText();
         }
         return null;
     }
