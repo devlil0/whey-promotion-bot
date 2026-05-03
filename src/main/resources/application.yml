@@ -45,6 +45,7 @@ mercadolivre:
     base-url: https://api.mercadolibre.com
   app-id: ${ML_APP_ID:}
   secret-key: ${ML_SECRET_KEY:}
+  redirect-uri: https://whey-promotion-bot-production.up.railway.app/api/ml/oauth/callback
 
 promotion:
   discount-threshold: 0.05
