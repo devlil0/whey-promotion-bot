@@ -44,7 +44,7 @@ public class MercadoLivreClient {
             return webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/sites/MLB/search")
-                            .queryParam("q", "whey")
+                            .queryParam("q", "whey protein")
                             .queryParam("limit", limit)
                             .build())
                     .retrieve()
