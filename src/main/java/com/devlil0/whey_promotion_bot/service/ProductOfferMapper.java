@@ -300,7 +300,15 @@ public class ProductOfferMapper {
     private String firstGrowthImage(JsonNode product) {
         JsonNode images = product.path("midias").path("imagens");
         if (images.isArray() && images.size() > 0) {
-            JsonNode files = images.get(0).path("arquivos");
+            JsonNode img = images.get(0);
+            JsonNode originals = img.path("arquivosOriginais");
+            if (!originals.isMissingNode()) {
+                if (originals.hasNonNull("zoom"))   return originals.path("zoom").asText();
+                if (originals.hasNonNull("big"))    return originals.path("big").asText();
+                if (originals.hasNonNull("medium")) return originals.path("medium").asText();
+                if (originals.hasNonNull("small"))  return originals.path("small").asText();
+            }
+            JsonNode files = img.path("arquivos");
             if (files.hasNonNull("zoom"))   return files.path("zoom").asText();
             if (files.hasNonNull("big"))    return files.path("big").asText();
             if (files.hasNonNull("medium")) return files.path("medium").asText();
