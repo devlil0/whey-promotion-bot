@@ -48,12 +48,48 @@ public class MlCostBenefitService {
         this.mlClient = mlClient;
     }
 
+    public List<java.util.Map<String, Object>> diagnose() {
+        JsonNode response;
+        try {
+            response = mlClient.searchWhey(5);
+        } catch (Exception e) {
+            return List.of(java.util.Map.of("error", e.getMessage()));
+        }
+
+        JsonNode results = response.path("results");
+        if (!results.isArray()) return List.of(java.util.Map.of("error", "no results array"));
+
+        List<java.util.Map<String, Object>> report = new ArrayList<>();
+        for (JsonNode item : results) {
+            java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
+            String itemId = item.path("id").asText("?");
+            String title = item.path("title").asText("?");
+            entry.put("id", itemId);
+            entry.put("title", title);
+            entry.put("condition", item.path("condition").asText());
+            entry.put("price", item.path("price").asDouble());
+            entry.put("passesWheyFilter", ProductFilter.isWheyMainRankingCandidate(title));
+
+            String description = mlClient.getItemDescription(itemId);
+            entry.put("descriptionNull", description == null);
+            if (description != null) {
+                entry.put("descriptionSnippet", description.length() > 600 ? description.substring(0, 600) : description);
+                entry.put("proteinPerServingFound", parseProteinPerServing(description) != null ? parseProteinPerServing(description) : "not found");
+                entry.put("servingsFound", parseServings(description) != null ? parseServings(description) : "not found");
+                entry.put("totalProteinFound", parseTotalProtein(description) != null ? parseTotalProtein(description) : "not found");
+            }
+            report.add(entry);
+        }
+        return report;
+    }
+
     public List<MlProductRanking> getTop3() {
         JsonNode response;
         try {
             response = mlClient.searchWhey(20);
         } catch (Exception e) {
-            log.error("Falha ao buscar produtos ML para Top 3: {}", e.getMessage());
+            log.error("Falha ao buscar produtos ML para Top 3: {} — causa: {}",
+                    e.getMessage(), e.getCause() != null ? e.getCause().getMessage() : "sem causa");
             return List.of();
         }
 

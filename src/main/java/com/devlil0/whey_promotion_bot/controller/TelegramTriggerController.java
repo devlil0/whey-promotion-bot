@@ -7,6 +7,7 @@ import com.devlil0.whey_promotion_bot.service.MlCostBenefitService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
 import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,6 +56,11 @@ public class TelegramTriggerController {
                 "sent", !promotions.isEmpty(),
                 "promotionCount", promotions.size()
         );
+    }
+
+    @GetMapping("/trigger/ml-top3/debug")
+    public Object debugMlTop3() {
+        return mlCostBenefitService.diagnose();
     }
 
     @PostMapping("/trigger/ml-top3")
