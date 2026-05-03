@@ -32,9 +32,16 @@ public class MercadoLivreClient {
                             .queryParam("offset", offset)
                             .build())
                     .retrieve()
+                    .onStatus(status -> status.isError(), response ->
+                            response.bodyToMono(String.class).map(body -> {
+                                log.error("ML search erro {}: {}", response.statusCode(), body);
+                                return new ExternalApiException("ML search retornou " + response.statusCode());
+                            }))
                     .bodyToMono(JsonNode.class)
                     .block();
         } catch (Exception e) {
+            log.error("Falha em searchWheyProtein: {} — causa: {}", e.getMessage(),
+                    e.getCause() != null ? e.getCause().getMessage() : "sem causa");
             throw new ExternalApiException("Falha ao consultar Mercado Livre", e);
         }
     }
