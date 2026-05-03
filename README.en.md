@@ -1,5 +1,7 @@
 # Whey Promotion Bot
 
+> [🇧🇷 Português](README.md) &nbsp;|&nbsp; 🇺🇸 English
+
 A bot that monitors whey protein prices across Brazilian online stores and Mercado Livre, calculates the best cost-per-gram of protein, and automatically sends promotion alerts and a daily ranking to a Telegram group.
 
 ---
@@ -213,3 +215,9 @@ Configurable via environment variables or directly in `application.yml`:
 | `promotion.discount-threshold` | `0.15` | Minimum drop relative to the average (15%) |
 | `promotion.history-days` | `7` | Moving average window in days |
 | `promotion.min-history-samples` | `3` | Minimum samples required to trigger an alert |
+
+---
+
+## Built with AI assistance
+
+This project was developed with support from **generative artificial intelligence** to accelerate architectural decisions, code generation, and performance optimization. AI assistance enabled faster iteration on areas such as persistence layer design, nutrition matching logic, and Telegram message formatting — while keeping all technical and product decisions entirely human-driven.
