@@ -1,5 +1,6 @@
 package com.devlil0.whey_promotion_bot.controller;
 
+import com.devlil0.whey_promotion_bot.client.MercadoLivreClient;
 import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
@@ -30,19 +31,22 @@ public class TelegramTriggerController {
     private final MlCostBenefitService mlCostBenefitService;
     private final StoreCollectorService collectorService;
     private final OfferPersistenceService persistenceService;
+    private final MercadoLivreClient mercadoLivreClient;
 
     public TelegramTriggerController(TelegramNotificationService telegramService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
                                      MlCostBenefitService mlCostBenefitService,
                                      StoreCollectorService collectorService,
-                                     OfferPersistenceService persistenceService) {
+                                     OfferPersistenceService persistenceService,
+                                     MercadoLivreClient mercadoLivreClient) {
         this.telegramService = telegramService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.mlCostBenefitService = mlCostBenefitService;
         this.collectorService = collectorService;
         this.persistenceService = persistenceService;
+        this.mercadoLivreClient = mercadoLivreClient;
     }
 
     @PostMapping("/trigger/collect")
@@ -78,6 +82,11 @@ public class TelegramTriggerController {
     @GetMapping("/trigger/ml-top3/debug")
     public Object debugMlTop3() {
         return mlCostBenefitService.diagnose();
+    }
+
+    @GetMapping("/trigger/ml/probe")
+    public Object probeMl() {
+        return mercadoLivreClient.diagnose();
     }
 
     @PostMapping("/trigger/ml-top3")
