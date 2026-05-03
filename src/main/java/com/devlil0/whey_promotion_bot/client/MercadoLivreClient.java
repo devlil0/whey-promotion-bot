@@ -2,6 +2,7 @@ package com.devlil0.whey_promotion_bot.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.devlil0.whey_promotion_bot.exception.ExternalApiException;
+import com.devlil0.whey_promotion_bot.service.MlTokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,12 +15,15 @@ public class MercadoLivreClient {
     private static final Logger log = LoggerFactory.getLogger(MercadoLivreClient.class);
 
     private final WebClient webClient;
+    private final MlTokenService tokenService;
 
     public MercadoLivreClient(
             WebClient.Builder builder,
-            @Value("${mercadolivre.api.base-url}") String baseUrl
+            @Value("${mercadolivre.api.base-url}") String baseUrl,
+            MlTokenService tokenService
     ) {
         this.webClient = builder.baseUrl(baseUrl).build();
+        this.tokenService = tokenService;
     }
 
     public JsonNode searchWheyProtein(int limit, int offset) {
@@ -31,6 +35,7 @@ public class MercadoLivreClient {
                             .queryParam("limit", limit)
                             .queryParam("offset", offset)
                             .build())
+                    .headers(this::applyAuth)
                     .retrieve()
                     .onStatus(status -> status.isError(), response ->
                             response.bodyToMono(String.class).map(body -> {
@@ -50,6 +55,7 @@ public class MercadoLivreClient {
         try {
             JsonNode response = webClient.get()
                     .uri("/items/{id}/descriptions", itemId)
+                    .headers(this::applyAuth)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
@@ -61,6 +67,13 @@ public class MercadoLivreClient {
         } catch (Exception e) {
             log.warn("Falha ao buscar descrição do item ML {}: {}", itemId, e.getMessage());
             return null;
+        }
+    }
+
+    private void applyAuth(org.springframework.http.HttpHeaders headers) {
+        String token = tokenService.getAccessToken();
+        if (token != null) {
+            headers.setBearerAuth(token);
         }
     }
 }

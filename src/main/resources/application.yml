@@ -43,6 +43,8 @@ telegram:
 mercadolivre:
   api:
     base-url: https://api.mercadolibre.com
+  app-id: ${ML_APP_ID:}
+  secret-key: ${ML_SECRET_KEY:}
 
 promotion:
   discount-threshold: 0.05
