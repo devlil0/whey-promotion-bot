@@ -1,11 +1,14 @@
 package com.devlil0.whey_promotion_bot.controller;
 
 import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
+import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
 import com.devlil0.whey_promotion_bot.service.MlCostBenefitService;
+import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
+import com.devlil0.whey_promotion_bot.service.StoreCollectorService;
 import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,15 +28,29 @@ public class TelegramTriggerController {
     private final RankingService rankingService;
     private final PromotionService promotionService;
     private final MlCostBenefitService mlCostBenefitService;
+    private final StoreCollectorService collectorService;
+    private final OfferPersistenceService persistenceService;
 
     public TelegramTriggerController(TelegramNotificationService telegramService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
-                                     MlCostBenefitService mlCostBenefitService) {
+                                     MlCostBenefitService mlCostBenefitService,
+                                     StoreCollectorService collectorService,
+                                     OfferPersistenceService persistenceService) {
         this.telegramService = telegramService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.mlCostBenefitService = mlCostBenefitService;
+        this.collectorService = collectorService;
+        this.persistenceService = persistenceService;
+    }
+
+    @PostMapping("/trigger/collect")
+    public Map<String, Object> triggerCollect() {
+        List<ProductOfferResponse> offers = collectorService.collectAllWheyOffers();
+        int saved = persistenceService.upsertAll(offers);
+        List<RankingItemResponse> ranking = rankingService.refreshRanking();
+        return Map.of("saved", saved, "rankingSize", ranking.size());
     }
 
     @PostMapping("/trigger/ranking")
