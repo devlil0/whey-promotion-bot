@@ -45,6 +45,6 @@ mercadolivre:
     base-url: https://api.mercadolibre.com
 
 promotion:
-  discount-threshold: 0.15
+  discount-threshold: 0.05
   history-days: 7
   min-history-samples: 3

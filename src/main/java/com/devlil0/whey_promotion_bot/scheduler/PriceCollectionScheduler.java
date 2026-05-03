@@ -1,8 +1,10 @@
 package com.devlil0.whey_promotion_bot.scheduler;
 
+import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
+import com.devlil0.whey_promotion_bot.service.MlCostBenefitService;
 import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
@@ -26,17 +28,20 @@ public class PriceCollectionScheduler {
     private final RankingService rankingService;
     private final PromotionService promotionService;
     private final TelegramNotificationService telegramService;
+    private final MlCostBenefitService mlCostBenefitService;
 
     public PriceCollectionScheduler(StoreCollectorService collectorService,
                                      OfferPersistenceService persistenceService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
-                                     TelegramNotificationService telegramService) {
+                                     TelegramNotificationService telegramService,
+                                     MlCostBenefitService mlCostBenefitService) {
         this.collectorService = collectorService;
         this.persistenceService = persistenceService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.telegramService = telegramService;
+        this.mlCostBenefitService = mlCostBenefitService;
     }
 
     @Scheduled(cron = "0 0 8,20 * * *", zone = "America/Sao_Paulo")
@@ -63,5 +68,14 @@ public class PriceCollectionScheduler {
         log.info("Enviando ranking diário ao Telegram — {}", LocalDateTime.now());
         List<RankingItemResponse> ranking = rankingService.getRanking(10, null);
         telegramService.sendRanking(ranking);
+
+        log.info("Buscando Top 3 custo-benefício do Mercado Livre...");
+        List<MlProductRanking> mlTop3 = mlCostBenefitService.getTop3();
+        if (mlTop3.isEmpty()) {
+            log.warn("Nenhum produto ML com dados suficientes para o Top 3.");
+        } else {
+            log.info("Top 3 ML encontrado — enviando ao Telegram.");
+            telegramService.sendMlTop3(mlTop3);
+        }
     }
 }

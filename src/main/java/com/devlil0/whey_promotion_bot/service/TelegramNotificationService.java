@@ -1,6 +1,7 @@
 package com.devlil0.whey_promotion_bot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
 import org.slf4j.Logger;
@@ -54,6 +55,22 @@ public class TelegramNotificationService {
         }
     }
 
+    // ── ML Top 3 ─────────────────────────────────────────────────────────────
+
+    public void sendMlTop3(List<MlProductRanking> ranking) {
+        if (!enabled || ranking.isEmpty()) return;
+        sendMessage(formatMlTop3Header());
+        for (MlProductRanking item : ranking) {
+            String caption = formatMlTop3Caption(item);
+            String imageUrl = resolveImageUrl(item.imageUrl());
+            if (imageUrl != null) {
+                sendPhoto(imageUrl, caption);
+            } else {
+                sendMessage(caption);
+            }
+        }
+    }
+
     // ── Promoções ─────────────────────────────────────────────────────────────
 
     public void sendPromotions(List<PromotionAlert> promotions) {
@@ -73,28 +90,75 @@ public class TelegramNotificationService {
     // ── Templates ─────────────────────────────────────────────────────────────
 
     /*
+     * Ranking — cabeçalho
+     *
+     * 🏆 Ranking Diário de Whey — Top 10
+     * 📅 03/05/2026 08:05
+     * 💡 Ordenado por custo/g de proteína
+     */
+    private String formatRankingHeader(int total) {
+        return String.format(
+                "🏆 <b>Ranking Diário de Whey</b> — Top %d\n📅 %s\n💡 <i>Ordenado por custo/g de proteína</i>",
+                total,
+                LocalDateTime.now().format(FORMATTER)
+        );
+    }
+
+    /*
+     * Ranking — card por produto
+     *
+     * 🥇 Whey Protein Isolado 900g
+     * 🏪 Growth Supplements
+     *
+     * ⚖️ 900g  •  🧬 270g de proteína
+     *
+     * 💰 R$ 89,99
+     * 📊 R$ 0,0891/g de proteína
+     *
+     * 🔗 Ver produto
+     */
+    private String formatRankingCaption(RankingItemResponse item) {
+        BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("%s <b>%s</b>\n", positionMedal(item.position()), item.name()));
+        sb.append(String.format("🏪 %s\n\n", storeLabel(item.store())));
+        if (item.weightGrams() != null || item.totalProteinGrams() != null) {
+            if (item.weightGrams() != null) sb.append(String.format("⚖️ %dg", item.weightGrams()));
+            if (item.weightGrams() != null && item.totalProteinGrams() != null) sb.append("  •  ");
+            if (item.totalProteinGrams() != null) sb.append(String.format("🧬 %.0fg de proteína", item.totalProteinGrams()));
+            sb.append("\n\n");
+        }
+        sb.append(String.format("💰 R$ %.2f\n", effectivePrice));
+        sb.append(String.format("📊 <b>R$ %.4f/g de proteína</b>\n", item.pricePerProteinGram()));
+        if (item.productUrl() != null) {
+            sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", item.productUrl()));
+        }
+        return sb.toString();
+    }
+
+    /*
      * Promoção — cabeçalho
      *
-     * 🔥 Promoções de Whey — 2 produtos
-     * 📅 02/05/2026 20:00
+     * 🔥 Alertas de Promoção — 2 produtos
+     * 📅 03/05/2026 08:00
      */
     private String formatPromotionHeader(int count) {
         return String.format(
-                "🔥 <b>Promoções de Whey</b> — %d produto%s\n📅 %s",
+                "🔥 <b>Alertas de Promoção</b> — %d produto%s\n📅 %s",
                 count, count == 1 ? "" : "s",
                 LocalDateTime.now().format(FORMATTER)
         );
     }
 
     /*
-     * Promoção — card (caption do /sendPhoto ou mensagem de fallback)
+     * Promoção — card
      *
      * 🏷 Whey Protein Isolado 900g
      * 🏪 Growth Supplements
      *
-     * 📉 18,5% abaixo da média de 7 dias
-     * 💰 De R$ 110,29 → R$ 89,99
-     * 💪 R$ 0,0891/g de proteína
+     * 📉 18,5% de desconto vs. média (7 dias)
+     * 💸 R$ 110,29 → R$ 89,99
+     * 🧬 R$ 0,0891/g de proteína
      *
      * 🛒 Comprar agora
      */
@@ -103,10 +167,10 @@ public class TelegramNotificationService {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("🏷 <b>%s</b>\n", p.name()));
         sb.append(String.format("🏪 %s\n\n", storeLabel(p.store())));
-        sb.append(String.format("📉 <b>%.1f%%</b> abaixo da média de 7 dias\n", discountPct));
-        sb.append(String.format("💰 De R$ %.2f → <b>R$ %.2f</b>\n",
+        sb.append(String.format("📉 <b>%.1f%%</b> de desconto vs. média (7 dias)\n", discountPct));
+        sb.append(String.format("💸 <s>R$ %.2f</s> → <b>R$ %.2f</b>\n",
                 p.averagePrice(), p.currentPrice()));
-        sb.append(String.format("💪 <b>R$ %.4f</b>/g de proteína\n", p.pricePerProteinGram()));
+        sb.append(String.format("🧬 <b>R$ %.4f</b>/g de proteína\n", p.pricePerProteinGram()));
         if (p.productUrl() != null) {
             sb.append(String.format("\n🛒 <a href=\"%s\">Comprar agora</a>", p.productUrl()));
         }
@@ -114,48 +178,61 @@ public class TelegramNotificationService {
     }
 
     /*
-     * Ranking — cabeçalho
+     * ML Top 3 — cabeçalho
      *
-     * 🏆 Ranking de Whey — Top 10
-     * 📅 02/05/2026 20:00
-     * 💡 Ordenado por custo por grama de proteína
+     * 🛒 Top 3 Custo-Benefício — Mercado Livre
+     * 📅 03/05/2026 08:05
+     * 💡 "whey" · menor preço · custo/g de proteína
      */
-    private String formatRankingHeader(int total) {
+    private String formatMlTop3Header() {
         return String.format(
-                "🏆 <b>Ranking de Whey</b> — Top %d\n📅 %s\n💡 <i>Ordenado por custo/g de proteína</i>",
-                total,
+                "🛒 <b>Top 3 Custo-Benefício — Mercado Livre</b>\n📅 %s\n💡 <i>\"whey\" · menor preço · custo/g de proteína</i>",
                 LocalDateTime.now().format(FORMATTER)
         );
     }
 
     /*
-     * Ranking — card por produto (caption do /sendPhoto ou mensagem de fallback)
+     * ML Top 3 — card por produto
      *
-     * #1  Whey Protein Isolado 900g
-     * 🏪 Growth Supplements  •  💪 270g de proteína total
+     * 🥇 Whey Protein Concentrado 900g
+     * 🏪 Optimum Nutrition
      *
-     * 💰 R$ 89,99  →  R$ 0,0891/g prot.
+     * ⚖️ 900g  •  🧬 270g de proteína
      *
-     * 🔗 Ver produto
+     * 💰 R$ 89,99
+     * 📊 R$ 0,0891/g de proteína
+     *
+     * 🔗 Ver no Mercado Livre
      */
-    private String formatRankingCaption(RankingItemResponse item) {
-        BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
+    private String formatMlTop3Caption(MlProductRanking item) {
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("<b>#%d  %s</b>\n", item.position(), item.name()));
-        sb.append(String.format("🏪 %s", storeLabel(item.store())));
-        if (item.totalProteinGrams() != null) {
-            sb.append(String.format("  •  💪 %.0fg de proteína total", item.totalProteinGrams()));
+        sb.append(String.format("%s <b>%s</b>\n", positionMedal(item.position()), item.name()));
+        if (item.brand() != null) sb.append(String.format("🏪 %s\n", item.brand()));
+        sb.append("\n");
+        if (item.weightGrams() != null || item.totalProteinGrams() != null) {
+            if (item.weightGrams() != null) sb.append(String.format("⚖️ %dg", item.weightGrams()));
+            if (item.weightGrams() != null && item.totalProteinGrams() != null) sb.append("  •  ");
+            if (item.totalProteinGrams() != null) sb.append(String.format("🧬 %.0fg de proteína", item.totalProteinGrams()));
+            sb.append("\n\n");
         }
-        sb.append("\n\n");
-        sb.append(String.format("💰 R$ %.2f  →  <b>R$ %.4f/g prot.</b>\n",
-                effectivePrice, item.pricePerProteinGram()));
+        sb.append(String.format("💰 R$ %.2f\n", item.price()));
+        sb.append(String.format("📊 <b>R$ %.4f/g de proteína</b>\n", item.costPerProteinGram()));
         if (item.productUrl() != null) {
-            sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", item.productUrl()));
+            sb.append(String.format("\n🔗 <a href=\"%s\">Ver no Mercado Livre</a>", item.productUrl()));
         }
         return sb.toString();
     }
 
     // ── Utilitários ───────────────────────────────────────────────────────────
+
+    private String positionMedal(int position) {
+        return switch (position) {
+            case 1 -> "🥇";
+            case 2 -> "🥈";
+            case 3 -> "🥉";
+            default -> "#" + position;
+        };
+    }
 
     /*
      * Garante que apenas URLs absolutas (http/https) são enviadas ao Telegram.

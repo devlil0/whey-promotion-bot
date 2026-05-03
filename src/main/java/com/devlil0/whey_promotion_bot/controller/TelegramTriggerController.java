@@ -1,7 +1,9 @@
 package com.devlil0.whey_promotion_bot.controller;
 
+import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
+import com.devlil0.whey_promotion_bot.service.MlCostBenefitService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
 import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
@@ -21,13 +23,16 @@ public class TelegramTriggerController {
     private final TelegramNotificationService telegramService;
     private final RankingService rankingService;
     private final PromotionService promotionService;
+    private final MlCostBenefitService mlCostBenefitService;
 
     public TelegramTriggerController(TelegramNotificationService telegramService,
                                      RankingService rankingService,
-                                     PromotionService promotionService) {
+                                     PromotionService promotionService,
+                                     MlCostBenefitService mlCostBenefitService) {
         this.telegramService = telegramService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
+        this.mlCostBenefitService = mlCostBenefitService;
     }
 
     @PostMapping("/trigger/ranking")
@@ -49,6 +54,16 @@ public class TelegramTriggerController {
         return Map.of(
                 "sent", !promotions.isEmpty(),
                 "promotionCount", promotions.size()
+        );
+    }
+
+    @PostMapping("/trigger/ml-top3")
+    public Map<String, Object> triggerMlTop3() {
+        List<MlProductRanking> top3 = mlCostBenefitService.getTop3();
+        telegramService.sendMlTop3(top3);
+        return Map.of(
+                "sent", !top3.isEmpty(),
+                "products", top3
         );
     }
 }
