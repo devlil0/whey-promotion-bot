@@ -53,17 +53,7 @@ public class NutritionDataSeeder implements ApplicationRunner {
             build("Isolate Protein Mix Refil 900g",    "PROFIT_LABS", "ProFit Laboratórios",  900, bd(40), bd(26), bd(22)),
             build("Isolate Protein Mix Refil 1,8Kg",   "PROFIT_LABS", "ProFit Laboratórios", 1800, bd(40), bd(26), bd(45)),
 
-            // ── Growth Supplements (via Mercado Livre) ────────────────────────
-            build("(TOP) Whey e Egg Sabor Natural 1Kg", "GROWTH", "Growth Supplements", 1000, bd(30), bd(25), new BigDecimal("33.3")),
-
-            // ── Mercado Livre — marcas sem API própria ────────────────────────
-            build("Whey Protein Blend 900g",                    "MERCADO_LIVRE", "Bulk Nutrition",    900, bd(40), bd(22), new BigDecimal("22.5")),
-            build("Whey Blend Protein Concentrado e Isolado 900g", "MERCADO_LIVRE", "Soldiers Nutrition", 900, bd(30), bd(20), bd(30)),
-            build("Protein Complex 900g",                       "MERCADO_LIVRE", "New Millen",        900, bd(40), bd(25), new BigDecimal("22.5")),
-            build("HI Blend Protein 900g",                      "MERCADO_LIVRE", "Leader Nutrition",  900, bd(40), bd(24), new BigDecimal("22.5")),
-            build("Protein Fusion Whey Isolate 900g",           "MERCADO_LIVRE", "Espartanos",        900, bd(40), bd(26), new BigDecimal("22.5")),
-            build("Whey Protein Isofreak 900g",                 "MERCADO_LIVRE", "3VS Nutrition",     900, bd(30), bd(25), bd(30)),
-            build("Whey 100% Pure 900g",                        "MERCADO_LIVRE", "Absolut Nutrition", 900, bd(30), bd(20), bd(30))
+            build("(TOP) Whey e Egg Sabor Natural 1Kg", "GROWTH", "Growth Supplements", 1000, bd(30), bd(25), new BigDecimal("33.3"))
         ));
     }
 

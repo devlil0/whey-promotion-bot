@@ -1,7 +1,6 @@
 package com.devlil0.whey_promotion_bot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.devlil0.whey_promotion_bot.dto.MlProductRanking;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
 import org.slf4j.Logger;
@@ -46,22 +45,6 @@ public class TelegramNotificationService {
         sendMessage(formatRankingHeader(ranking.size()));
         for (RankingItemResponse item : ranking) {
             String caption = formatRankingCaption(item);
-            String imageUrl = resolveImageUrl(item.imageUrl());
-            if (imageUrl != null) {
-                sendPhoto(imageUrl, caption);
-            } else {
-                sendMessage(caption);
-            }
-        }
-    }
-
-    // ── ML Top 3 ─────────────────────────────────────────────────────────────
-
-    public void sendMlTop3(List<MlProductRanking> ranking) {
-        if (!enabled || ranking.isEmpty()) return;
-        sendMessage(formatMlTop3Header());
-        for (MlProductRanking item : ranking) {
-            String caption = formatMlTop3Caption(item);
             String imageUrl = resolveImageUrl(item.imageUrl());
             if (imageUrl != null) {
                 sendPhoto(imageUrl, caption);
@@ -177,52 +160,6 @@ public class TelegramNotificationService {
         return sb.toString();
     }
 
-    /*
-     * ML Top 3 — cabeçalho
-     *
-     * 🛒 Top 3 Custo-Benefício — Mercado Livre
-     * 📅 03/05/2026 08:05
-     * 💡 "whey" · menor preço · custo/g de proteína
-     */
-    private String formatMlTop3Header() {
-        return String.format(
-                "🛒 <b>Top 3 Custo-Benefício — Mercado Livre</b>\n📅 %s\n💡 <i>\"whey\" · menor preço · custo/g de proteína</i>",
-                LocalDateTime.now().format(FORMATTER)
-        );
-    }
-
-    /*
-     * ML Top 3 — card por produto
-     *
-     * 🥇 Whey Protein Concentrado 900g
-     * 🏪 Optimum Nutrition
-     *
-     * ⚖️ 900g  •  🧬 270g de proteína
-     *
-     * 💰 R$ 89,99
-     * 📊 R$ 0,0891/g de proteína
-     *
-     * 🔗 Ver no Mercado Livre
-     */
-    private String formatMlTop3Caption(MlProductRanking item) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(String.format("%s <b>%s</b>\n", positionMedal(item.position()), item.name()));
-        if (item.brand() != null) sb.append(String.format("🏪 %s\n", item.brand()));
-        sb.append("\n");
-        if (item.weightGrams() != null || item.totalProteinGrams() != null) {
-            if (item.weightGrams() != null) sb.append(String.format("⚖️ %dg", item.weightGrams()));
-            if (item.weightGrams() != null && item.totalProteinGrams() != null) sb.append("  •  ");
-            if (item.totalProteinGrams() != null) sb.append(String.format("🧬 %.0fg de proteína", item.totalProteinGrams()));
-            sb.append("\n\n");
-        }
-        sb.append(String.format("💰 R$ %.2f\n", item.price()));
-        sb.append(String.format("📊 <b>R$ %.4f/g de proteína</b>\n", item.costPerProteinGram()));
-        if (item.productUrl() != null) {
-            sb.append(String.format("\n🔗 <a href=\"%s\">Ver no Mercado Livre</a>", item.productUrl()));
-        }
-        return sb.toString();
-    }
-
     // ── Utilitários ───────────────────────────────────────────────────────────
 
     private String positionMedal(int position) {
@@ -234,17 +171,10 @@ public class TelegramNotificationService {
         };
     }
 
-    /*
-     * Garante que apenas URLs absolutas (http/https) são enviadas ao Telegram.
-     * URLs relativas ou nulas resultam em null, forçando fallback para texto.
-     * ML thumbnail: troca sufixo -I.jpg/-I.webp por -O.jpg para resolução maior.
-     */
     private String resolveImageUrl(String url) {
         if (url == null || url.isBlank()) return null;
         if (!url.startsWith("http://") && !url.startsWith("https://")) return null;
-        // Mercado Livre: upgrade de thumbnail para imagem original
-        return url.replaceAll("-[A-Z]\\.jpg$", "-O.jpg")
-                  .replaceAll("-[A-Z]\\.webp$", "-O.webp");
+        return url;
     }
 
     private String storeLabel(String store) {
@@ -252,7 +182,6 @@ public class TelegramNotificationService {
             case "GROWTH" -> "Growth Supplements";
             case "DARK_LAB" -> "Dark Lab";
             case "PROFIT_LABS" -> "ProFit Labs";
-            case "MERCADO_LIVRE" -> "Mercado Livre";
             default -> store;
         };
     }
