@@ -31,6 +31,26 @@ profitlabs:
   api:
     base-url: https://profitlabs.commercesuite.com.br
 
+soldiers:
+  api:
+    base-url: https://soldiersnutrition.com.br
+
+blackskull:
+  api:
+    base-url: https://www.blackskullusa.com.br
+
+nutrata:
+  api:
+    base-url: https://loja.nutrata.com.br
+
+adaptogen:
+  api:
+    base-url: https://adaptogen.com.br
+
+absolut:
+  api:
+    base-url: https://www.absolutnutrition.com.br
+
 external:
   api:
     connect-timeout-ms: 10000

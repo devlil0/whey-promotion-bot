@@ -179,9 +179,14 @@ public class TelegramNotificationService {
 
     private String storeLabel(String store) {
         return switch (store) {
-            case "GROWTH" -> "Growth Supplements";
-            case "DARK_LAB" -> "Dark Lab";
-            case "PROFIT_LABS" -> "ProFit Labs";
+            case "GROWTH"             -> "Growth Supplements";
+            case "DARK_LAB"           -> "Dark Lab";
+            case "PROFIT_LABS"        -> "ProFit Labs";
+            case "SOLDIERS_NUTRITION" -> "Soldiers Nutrition";
+            case "BLACK_SKULL"        -> "Black Skull";
+            case "NUTRATA"            -> "Nutrata";
+            case "ADAPTOGEN"          -> "Adaptogen";
+            case "ABSOLUT_NUTRITION"  -> "Absolut Nutrition";
             default -> store;
         };
     }
