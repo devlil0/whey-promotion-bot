@@ -147,7 +147,6 @@ public class ProductOfferMapper {
         for (JsonNode product : products) {
             String title = JsonHelper.text(product, "title");
             String type = JsonHelper.text(product, "product_type");
-            if (!ProductFilter.isWheyMainRankingCandidate((title + " " + type).trim())) continue;
 
             JsonNode selectedVariant = cheapestAvailableVariant(product.path("variants"));
             if (selectedVariant == null || selectedVariant.isMissingNode()) continue;
