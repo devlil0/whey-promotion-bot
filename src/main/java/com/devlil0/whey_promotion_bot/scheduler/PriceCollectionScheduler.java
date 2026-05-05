@@ -1,5 +1,6 @@
 package com.devlil0.whey_promotion_bot.scheduler;
 
+import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
@@ -63,5 +64,26 @@ public class PriceCollectionScheduler {
         log.info("Enviando ranking diário ao Telegram — {}", LocalDateTime.now());
         List<RankingItemResponse> ranking = rankingService.getRanking(10, null);
         telegramService.sendRanking(ranking);
+    }
+
+    @Scheduled(cron = "0 0 12 * * *", zone = "America/Sao_Paulo")
+    public void sendGrowthOfertas() {
+        log.info("Enviando ofertas Growth Supplements ao Telegram — {}", LocalDateTime.now());
+        List<OfertasFaixaResponse> ofertas = collectorService.collectGrowthOfertasByBand();
+        telegramService.sendOfertas(ofertas, "Growth Supplements");
+    }
+
+    @Scheduled(cron = "0 0 16 * * *", zone = "America/Sao_Paulo")
+    public void sendProfitLabsPromocoes() {
+        log.info("Enviando promoções ProFit Labs ao Telegram — {}", LocalDateTime.now());
+        List<OfertasFaixaResponse> promocoes = collectorService.collectProfitLabsPromocoesByBand();
+        telegramService.sendOfertas(promocoes, "ProFit Labs");
+    }
+
+    @Scheduled(cron = "0 10 20 * * *", zone = "America/Sao_Paulo")
+    public void sendSoldiersOfertaRelampago() {
+        log.info("Enviando oferta relâmpago Soldiers Nutrition ao Telegram — {}", LocalDateTime.now());
+        List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
+        telegramService.sendOfertaRelampago(ofertas);
     }
 }
