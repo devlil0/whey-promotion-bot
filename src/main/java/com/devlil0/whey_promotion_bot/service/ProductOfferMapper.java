@@ -57,6 +57,40 @@ public class ProductOfferMapper {
         return offers;
     }
 
+    public List<ProductOfferResponse> fromGrowthOfertas(JsonNode response) {
+        List<ProductOfferResponse> offers = new ArrayList<>();
+        JsonNode products = response.path("conteudo").path("produtos");
+        if (!products.isArray()) products = response.path("produtos");
+        if (!products.isArray()) return offers;
+
+        for (JsonNode product : products) {
+            String name = JsonHelper.text(product, "nome");
+            JsonNode prices = product.path("precos");
+            String brand = product.path("marca").path("nome").asText("Growth Supplements");
+
+            offers.add(new ProductOfferResponse(
+                    "GROWTH",
+                    asString(product.path("id")),
+                    null,
+                    JsonHelper.text(product, "sku"),
+                    name,
+                    brand,
+                    null,
+                    decimalFlexible(prices, "por"),
+                    decimalFlexible(prices, "vista"),
+                    decimalFlexible(prices, "de"),
+                    isGrowthAvailable(product),
+                    JsonHelper.integer(product, "estoque"),
+                    extractWeightInGrams(name),
+                    JsonHelper.text(product, "url"),
+                    firstGrowthImage(product),
+                    "GROWTH_OFERTAS"
+            ));
+        }
+
+        return offers;
+    }
+
     public List<ProductOfferResponse> fromGrowthShowcase(JsonNode response) {
         List<ProductOfferResponse> offers = new ArrayList<>();
         JsonNode products = response.path("produtos");
@@ -103,6 +137,51 @@ public class ProductOfferMapper {
 
     public List<ProductOfferResponse> fromSoldiersNutrition(JsonNode response) {
         return fromShopify(response, "SOLDIERS_NUTRITION", "https://soldiersnutrition.com.br");
+    }
+
+    public List<ProductOfferResponse> fromSoldiersOfertaRelampago(JsonNode response) {
+        List<ProductOfferResponse> offers = new ArrayList<>();
+        JsonNode products = response.path("products");
+        if (!products.isArray()) return offers;
+
+        for (JsonNode product : products) {
+            String title = JsonHelper.text(product, "title");
+
+            JsonNode selectedVariant = cheapestAvailableVariant(product.path("variants"));
+            if (selectedVariant == null || selectedVariant.isMissingNode()) continue;
+
+            String handle = JsonHelper.text(product, "handle");
+            BigDecimal price = JsonHelper.decimalFromText(JsonHelper.text(selectedVariant, "price"));
+            BigDecimal compareAt = JsonHelper.decimalFromText(JsonHelper.text(selectedVariant, "compare_at_price"));
+            BigDecimal pixPrice = price != null
+                    ? price.multiply(new BigDecimal("0.95")).setScale(2, RoundingMode.HALF_UP)
+                    : null;
+            BigDecimal oldPrice = (compareAt != null && price != null && compareAt.compareTo(price) > 0)
+                    ? compareAt : null;
+
+            offers.add(new ProductOfferResponse(
+                    "SOLDIERS_NUTRITION",
+                    asString(product.path("id")),
+                    asString(selectedVariant.path("id")),
+                    JsonHelper.text(selectedVariant, "sku"),
+                    title,
+                    JsonHelper.text(product, "vendor"),
+                    JsonHelper.text(product, "product_type"),
+                    price,
+                    pixPrice,
+                    oldPrice,
+                    selectedVariant.path("available").asBoolean(false),
+                    null,
+                    selectedVariant.path("grams").isNumber()
+                            ? selectedVariant.path("grams").asInt()
+                            : extractWeightInGrams(title),
+                    handle != null ? "https://soldiersnutrition.com.br/products/" + handle : null,
+                    firstShopifyImage(product),
+                    "SHOPIFY_OFERTA_RELAMPAGO"
+            ));
+        }
+
+        return offers;
     }
 
     private List<ProductOfferResponse> fromShopify(JsonNode response, String storeId, String baseUrl) {
@@ -164,6 +243,50 @@ public class ProductOfferMapper {
             String name = JsonHelper.text(product, "name");
             String slug = JsonHelper.text(product, "slug");
             if (!ProductFilter.isWheyMainRankingCandidate((name + " " + slug).trim())) continue;
+
+            BigDecimal cashPrice = firstAVistaValue(product.path("payment_option_details"));
+
+            String imageUrl = null;
+            JsonNode images = product.path("ProductImage");
+            if (images.isArray() && images.size() > 0) {
+                imageUrl = JsonHelper.text(images.get(0), "https");
+            }
+
+            String productUrl = product.path("url").path("https").asText(null);
+            String availableForPurchase = JsonHelper.text(product, "available_for_purchase");
+            String available = JsonHelper.text(product, "available");
+
+            offers.add(new ProductOfferResponse(
+                    "PROFIT_LABS",
+                    JsonHelper.text(product, "id"),
+                    null,
+                    null,
+                    name,
+                    JsonHelper.text(product, "brand"),
+                    JsonHelper.text(product, "category_id"),
+                    JsonHelper.decimalFromText(JsonHelper.text(product, "price")),
+                    cashPrice,
+                    null,
+                    "1".equals(availableForPurchase) || "1".equals(available),
+                    JsonHelper.integer(product, "stock"),
+                    extractWeightInGrams(name),
+                    productUrl,
+                    imageUrl,
+                    "TRAY_WEB_API_PRODUCTS"
+            ));
+        }
+
+        return offers;
+    }
+
+    public List<ProductOfferResponse> fromProfitLabsPromocoes(JsonNode response) {
+        List<ProductOfferResponse> offers = new ArrayList<>();
+        JsonNode products = response.path("Products");
+        if (!products.isArray()) return offers;
+
+        for (JsonNode wrapper : products) {
+            JsonNode product = wrapper.path("Product");
+            String name = JsonHelper.text(product, "name");
 
             BigDecimal cashPrice = firstAVistaValue(product.path("payment_option_details"));
 

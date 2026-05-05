@@ -30,4 +30,19 @@ public class SoldiersNutritionClient {
             throw new ExternalApiException("Falha ao consultar Soldiers Nutrition", e);
         }
     }
+
+    public JsonNode getOfertaRelampago(int page, int limit) {
+        try {
+            return webClient.get()
+                    .uri(u -> u.path("/collections/oferta-relampago-1/products.json")
+                            .queryParam("page", page)
+                            .queryParam("limit", limit)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+        } catch (Exception e) {
+            throw new ExternalApiException("Falha ao consultar Soldiers Nutrition oferta relâmpago", e);
+        }
+    }
 }

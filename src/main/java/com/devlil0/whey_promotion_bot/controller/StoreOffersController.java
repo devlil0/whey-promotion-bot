@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.devlil0.whey_promotion_bot.client.DarkLabClient;
 import com.devlil0.whey_promotion_bot.client.GrowthClient;
 import com.devlil0.whey_promotion_bot.client.ProfitLabsClient;
+import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.service.StoreCollectorService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,11 +50,26 @@ public class StoreOffersController {
         return growthClient.getWheyShowcase();
     }
 
+    @GetMapping("/growth/ofertas")
+    public List<OfertasFaixaResponse> getGrowthOfertas() {
+        return collectorService.collectGrowthOfertasByBand();
+    }
+
+    @GetMapping("/growth/whey")
+    public List<ProductOfferResponse> getGrowthWheyOffers() {
+        return collectorService.collectGrowthWheyOffers();
+    }
+
     @GetMapping("/growth/offers")
     public List<ProductOfferResponse> getGrowthOffers(
             @RequestParam(defaultValue = "/whey-protein/") String category
     ) {
         return collectorService.collectGrowthCategoryOffers(category);
+    }
+
+    @GetMapping("/soldiers/oferta-relampago")
+    public List<ProductOfferResponse> getSoldiersOfertaRelampago() {
+        return collectorService.collectSoldiersOfertaRelampago();
     }
 
     @GetMapping("/darklab/products/raw")
@@ -75,6 +91,11 @@ public class StoreOffersController {
             @RequestParam(defaultValue = "50") int limit
     ) {
         return profitLabsClient.getProducts(page, limit);
+    }
+
+    @GetMapping("/profitlabs/promocoes")
+    public List<OfertasFaixaResponse> getProfitLabsPromocoes() {
+        return collectorService.collectProfitLabsPromocoesByBand();
     }
 
     @GetMapping("/profitlabs/offers")
