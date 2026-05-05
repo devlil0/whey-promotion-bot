@@ -66,6 +66,8 @@ public class PromotionService {
                     offer.getStore(),
                     offer.getName(),
                     offer.getBrand(),
+                    offer.getWeightGrams(),
+                    score.getNutritionInfo().getProteinPerServingGrams(),
                     currentPrice,
                     avg.setScale(2, RoundingMode.HALF_UP),
                     discount,

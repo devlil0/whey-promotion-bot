@@ -131,6 +131,7 @@ public class RankingService {
                 offer.getWeightGrams(),
                 offer.getPrice(),
                 offer.getCashPrice(),
+                info.getProteinPerServingGrams(),
                 info.getTotalProteinGrams(),
                 score.getCostPerProteinGram(),
                 offer.getProductUrl(),

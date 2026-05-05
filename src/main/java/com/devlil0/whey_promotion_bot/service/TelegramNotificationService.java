@@ -1,6 +1,8 @@
 package com.devlil0.whey_promotion_bot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
+import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
 import org.slf4j.Logger;
@@ -11,9 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -21,6 +26,11 @@ public class TelegramNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(TelegramNotificationService.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final Locale BR_LOCALE = new Locale("pt", "BR");
+    private static final DecimalFormat CURRENCY_FORMAT =
+            new DecimalFormat("'R$' #,##0.00", DecimalFormatSymbols.getInstance(BR_LOCALE));
+    private static final DecimalFormat ONE_DECIMAL_FORMAT =
+            new DecimalFormat("#,##0.0", DecimalFormatSymbols.getInstance(BR_LOCALE));
 
     private final WebClient webClient;
     private final String chatId;
@@ -70,49 +80,113 @@ public class TelegramNotificationService {
         }
     }
 
+    // ── Ofertas por faixa (Growth / Profit Labs) ─────────────────────────────
+
+    public void sendOfertas(List<OfertasFaixaResponse> bands, String storeLabel) {
+        if (!enabled || bands.isEmpty()) return;
+        int total = bands.stream().mapToInt(OfertasFaixaResponse::quantidade).sum();
+        sendMessage(String.format(
+                "🔥 <b>Ofertas %s</b>\n%d produto%s encontrados\n📅 %s",
+                storeLabel, total, total == 1 ? "" : "s",
+                LocalDateTime.now().format(FORMATTER)
+        ));
+        for (OfertasFaixaResponse band : bands) {
+            sendMessage(String.format("💰 <b>%s</b>", band.faixa()));
+            for (ProductOfferResponse p : band.produtos()) {
+                String caption = formatOfertaCaption(p, "🔥 Oferta encontrada");
+                String imageUrl = resolveImageUrl(p.imageUrl());
+                if (imageUrl != null) sendPhoto(imageUrl, caption);
+                else sendMessage(caption);
+            }
+        }
+    }
+
+    // ── Oferta Relâmpago (Soldiers) ───────────────────────────────────────────
+
+    public void sendOfertaRelampago(List<ProductOfferResponse> products) {
+        if (!enabled || products.isEmpty()) return;
+        sendMessage(String.format(
+                "⚡ <b>Oferta Relâmpago — Soldiers Nutrition</b> — %d produto%s\n📅 %s",
+                products.size(), products.size() == 1 ? "" : "s",
+                LocalDateTime.now().format(FORMATTER)
+        ));
+        for (ProductOfferResponse p : products) {
+            String caption = formatOfertaCaption(p, "⚡ Oferta relâmpago");
+            String imageUrl = resolveImageUrl(p.imageUrl());
+            if (imageUrl != null) sendPhoto(imageUrl, caption);
+            else sendMessage(caption);
+        }
+    }
+
     // ── Templates ─────────────────────────────────────────────────────────────
+
+    /*
+     * 🔥 Oferta encontrada
+     * <b>Whey Blend Protein 900g</b>
+     * Soldiers Nutrition
+     * R$ 56,91
+     * 900g
+     * 🔗 Ver produto
+     */
+    private String formatOfertaCaption(ProductOfferResponse p, String badge) {
+        BigDecimal effectivePrice = p.cashPrice() != null ? p.cashPrice() : p.price();
+        StringBuilder sb = new StringBuilder();
+        sb.append(badge).append("\n");
+        sb.append(String.format("<b>%s</b>\n", p.name()));
+        sb.append(String.format("%s\n", storeLabel(p.store())));
+        if (p.oldPrice() != null && effectivePrice != null) {
+            sb.append(String.format("<s>%s</s> → <b>%s</b>\n", formatCurrency(p.oldPrice()), formatCurrency(effectivePrice)));
+        } else if (effectivePrice != null) {
+            sb.append(formatCurrency(effectivePrice)).append("\n");
+        }
+        if (p.cashPrice() != null && p.price() != null && p.cashPrice().compareTo(p.price()) < 0) {
+            sb.append("<i>no pix</i>\n");
+        }
+        if (p.weightGrams() != null) sb.append(String.format("%dg\n", p.weightGrams()));
+        if (p.productUrl() != null) {
+            sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", p.productUrl()));
+        }
+        return sb.toString();
+    }
 
     /*
      * Ranking — cabeçalho
      *
      * 🏆 Ranking Diário de Whey — Top 10
      * 📅 03/05/2026 08:05
-     * 💡 Ordenado por custo/g de proteína
      */
     private String formatRankingHeader(int total) {
         return String.format(
-                "🏆 <b>Ranking Diário de Whey</b> — Top %d\n📅 %s\n💡 <i>Ordenado por custo/g de proteína</i>",
+                "🏆 <b>Ranking Diário de Whey</b> — Top %d\n📅 %s",
                 total,
                 LocalDateTime.now().format(FORMATTER)
         );
     }
 
     /*
-     * Ranking — card por produto
-     *
-     * 🥇 Whey Protein Isolado 900g
-     * 🏪 Growth Supplements
-     *
-     * ⚖️ 900g  •  🧬 270g de proteína
-     *
-     * 💰 R$ 89,99
-     * 📊 R$ 0,0891/g de proteína
-     *
+     * 🥇 Melhor custo-benefício
+     * <b>Whey Blend Protein 900g</b>
+     * Soldiers Nutrition
+     * R$ 56,91
+     * 7,1 centavos/g de proteína
+     * 900g · 20g de proteína por dose
      * 🔗 Ver produto
      */
     private String formatRankingCaption(RankingItemResponse item) {
         BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("%s <b>%s</b>\n", positionMedal(item.position()), item.name()));
-        sb.append(String.format("🏪 %s\n\n", storeLabel(item.store())));
-        if (item.weightGrams() != null || item.totalProteinGrams() != null) {
-            if (item.weightGrams() != null) sb.append(String.format("⚖️ %dg", item.weightGrams()));
-            if (item.weightGrams() != null && item.totalProteinGrams() != null) sb.append("  •  ");
-            if (item.totalProteinGrams() != null) sb.append(String.format("🧬 %.0fg de proteína", item.totalProteinGrams()));
-            sb.append("\n\n");
+        sb.append(String.format("%s Melhor custo-benefício\n", positionMedal(item.position())));
+        sb.append(String.format("<b>%s</b>\n", item.name()));
+        sb.append(String.format("%s\n", storeLabel(item.store())));
+        if (effectivePrice != null) sb.append(formatCurrency(effectivePrice)).append("\n");
+        sb.append(String.format("<b>%s centavos/g de proteína</b>\n", formatCentavos(item.pricePerProteinGram())));
+        if (item.weightGrams() != null || item.proteinPerServingGrams() != null) {
+            String weight = item.weightGrams() != null ? item.weightGrams() + "g" : "";
+            String protein = item.proteinPerServingGrams() != null
+                    ? formatGrams(item.proteinPerServingGrams()) + "g de proteína por dose" : "";
+            if (!weight.isBlank() && !protein.isBlank()) sb.append(weight).append(" · ").append(protein).append("\n");
+            else sb.append(weight).append(protein).append("\n");
         }
-        sb.append(String.format("💰 R$ %.2f\n", effectivePrice));
-        sb.append(String.format("📊 <b>R$ %.4f/g de proteína</b>\n", item.pricePerProteinGram()));
         if (item.productUrl() != null) {
             sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", item.productUrl()));
         }
@@ -122,40 +196,44 @@ public class TelegramNotificationService {
     /*
      * Promoção — cabeçalho
      *
-     * 🔥 Alertas de Promoção — 2 produtos
+     * 📉 Alertas de Promoção — 2 produtos
      * 📅 03/05/2026 08:00
      */
     private String formatPromotionHeader(int count) {
         return String.format(
-                "🔥 <b>Alertas de Promoção</b> — %d produto%s\n📅 %s",
+                "📉 <b>Alertas de Promoção</b> — %d produto%s\n📅 %s",
                 count, count == 1 ? "" : "s",
                 LocalDateTime.now().format(FORMATTER)
         );
     }
 
     /*
-     * Promoção — card
-     *
-     * 🏷 Whey Protein Isolado 900g
-     * 🏪 Growth Supplements
-     *
-     * 📉 18,5% de desconto vs. média (7 dias)
-     * 💸 R$ 110,29 → R$ 89,99
-     * 🧬 R$ 0,0891/g de proteína
-     *
-     * 🛒 Comprar agora
+     * 📉 Preço caiu
+     * <b>Whey Protein Isolado 900g</b>
+     * Growth Supplements
+     * <s>R$ 110,29</s> → R$ 89,99
+     * 18,5% abaixo da média (7 dias)
+     * 900g · 20g de proteína por dose
+     * 🔗 Comprar agora
      */
     private String formatPromotionCaption(PromotionAlert p) {
         BigDecimal discountPct = p.discountPercent().multiply(BigDecimal.valueOf(100));
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("🏷 <b>%s</b>\n", p.name()));
-        sb.append(String.format("🏪 %s\n\n", storeLabel(p.store())));
-        sb.append(String.format("📉 <b>%.1f%%</b> de desconto vs. média (7 dias)\n", discountPct));
-        sb.append(String.format("💸 <s>R$ %.2f</s> → <b>R$ %.2f</b>\n",
-                p.averagePrice(), p.currentPrice()));
-        sb.append(String.format("🧬 <b>R$ %.4f</b>/g de proteína\n", p.pricePerProteinGram()));
+        sb.append("📉 Preço caiu\n");
+        sb.append(String.format("<b>%s</b>\n", p.name()));
+        sb.append(String.format("%s\n", storeLabel(p.store())));
+        sb.append(String.format("<s>%s</s> → <b>%s</b>\n", formatCurrency(p.averagePrice()), formatCurrency(p.currentPrice())));
+        sb.append(String.format("<b>%.1f%%</b> abaixo da média (7 dias)\n", discountPct));
+        sb.append(String.format("%s centavos/g de proteína\n", formatCentavos(p.pricePerProteinGram())));
+        if (p.weightGrams() != null || p.proteinPerServingGrams() != null) {
+            String weight = p.weightGrams() != null ? p.weightGrams() + "g" : "";
+            String protein = p.proteinPerServingGrams() != null
+                    ? formatGrams(p.proteinPerServingGrams()) + "g de proteína por dose" : "";
+            if (!weight.isBlank() && !protein.isBlank()) sb.append(weight).append(" · ").append(protein).append("\n");
+            else sb.append(weight).append(protein).append("\n");
+        }
         if (p.productUrl() != null) {
-            sb.append(String.format("\n🛒 <a href=\"%s\">Comprar agora</a>", p.productUrl()));
+            sb.append(String.format("\n🔗 <a href=\"%s\">Comprar agora</a>", p.productUrl()));
         }
         return sb.toString();
     }
@@ -189,6 +267,18 @@ public class TelegramNotificationService {
             case "ABSOLUT_NUTRITION"  -> "Absolut Nutrition";
             default -> store;
         };
+    }
+
+    private String formatCurrency(BigDecimal value) {
+        return CURRENCY_FORMAT.format(value);
+    }
+
+    private String formatCentavos(BigDecimal pricePerProteinGram) {
+        return ONE_DECIMAL_FORMAT.format(pricePerProteinGram.multiply(BigDecimal.valueOf(100)));
+    }
+
+    private String formatGrams(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString().replace(".", ",");
     }
 
     // ── Telegram API ──────────────────────────────────────────────────────────

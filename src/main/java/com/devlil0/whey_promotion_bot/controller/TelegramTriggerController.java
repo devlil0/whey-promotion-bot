@@ -1,5 +1,6 @@
 package com.devlil0.whey_promotion_bot.controller;
 
+import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
@@ -59,5 +60,28 @@ public class TelegramTriggerController {
         List<PromotionAlert> promotions = promotionService.detectPromotions(LocalDateTime.now());
         telegramService.sendPromotions(promotions);
         return Map.of("sent", !promotions.isEmpty(), "promotionCount", promotions.size());
+    }
+
+    @PostMapping("/trigger/growth/ofertas")
+    public Map<String, Object> triggerGrowthOfertas() {
+        List<OfertasFaixaResponse> ofertas = collectorService.collectGrowthOfertasByBand();
+        telegramService.sendOfertas(ofertas, "Growth Supplements");
+        int total = ofertas.stream().mapToInt(OfertasFaixaResponse::quantidade).sum();
+        return Map.of("sent", total > 0, "offerCount", total);
+    }
+
+    @PostMapping("/trigger/profitlabs/promocoes")
+    public Map<String, Object> triggerProfitLabsPromocoes() {
+        List<OfertasFaixaResponse> promocoes = collectorService.collectProfitLabsPromocoesByBand();
+        telegramService.sendOfertas(promocoes, "ProFit Labs");
+        int total = promocoes.stream().mapToInt(OfertasFaixaResponse::quantidade).sum();
+        return Map.of("sent", total > 0, "offerCount", total);
+    }
+
+    @PostMapping("/trigger/soldiers/oferta-relampago")
+    public Map<String, Object> triggerSoldiersOfertaRelampago() {
+        List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
+        telegramService.sendOfertaRelampago(ofertas);
+        return Map.of("sent", !ofertas.isEmpty(), "offerCount", ofertas.size());
     }
 }

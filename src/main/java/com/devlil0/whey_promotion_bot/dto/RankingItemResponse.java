@@ -10,6 +10,7 @@ public record RankingItemResponse(
         Integer weightGrams,
         BigDecimal price,
         BigDecimal cashPrice,
+        BigDecimal proteinPerServingGrams,
         BigDecimal totalProteinGrams,
         BigDecimal pricePerProteinGram,
         String productUrl,

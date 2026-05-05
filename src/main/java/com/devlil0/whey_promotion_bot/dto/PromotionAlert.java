@@ -6,6 +6,8 @@ public record PromotionAlert(
         String store,
         String name,
         String brand,
+        Integer weightGrams,
+        BigDecimal proteinPerServingGrams,
         BigDecimal currentPrice,
         BigDecimal averagePrice,
         BigDecimal discountPercent,
