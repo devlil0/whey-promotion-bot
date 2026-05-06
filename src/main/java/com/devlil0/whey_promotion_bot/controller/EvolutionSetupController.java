@@ -83,16 +83,21 @@ public class EvolutionSetupController {
     }
 
     private void ensureInstanceExists() {
+        boolean exists = false;
         try {
-            JsonNode existing = webClient.get()
-                    .uri("/instance/fetchInstances?instanceName=" + instance)
+            webClient.get()
+                    .uri("/instance/connectionState/" + instance)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
+            exists = true;
+            log.info("Instância '{}' já existe.", instance);
+        } catch (Exception e) {
+            log.info("Instância '{}' não encontrada ({}), criando...", instance, e.getMessage());
+        }
 
-            boolean found = existing != null && existing.isArray() && existing.size() > 0;
-            if (!found) {
-                log.info("Instância '{}' não encontrada, criando...", instance);
+        if (!exists) {
+            try {
                 JsonNode created = webClient.post()
                         .uri("/instance/create")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -105,12 +110,10 @@ public class EvolutionSetupController {
                         .bodyToMono(JsonNode.class)
                         .block();
                 log.info("Instância '{}' criada: {}", instance, created);
-            } else {
-                log.info("Instância '{}' já existe.", instance);
+            } catch (Exception e) {
+                log.error("Falha ao criar instância '{}': {}", instance, e.getMessage());
+                throw new RuntimeException("Falha ao criar instância Evolution: " + e.getMessage(), e);
             }
-        } catch (Exception e) {
-            log.error("Falha ao verificar/criar instância '{}': {}", instance, e.getMessage());
-            throw new RuntimeException("Falha ao criar instância Evolution: " + e.getMessage(), e);
         }
     }
 
