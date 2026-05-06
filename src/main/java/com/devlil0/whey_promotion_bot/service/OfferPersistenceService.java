@@ -11,9 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class OfferPersistenceService {
@@ -29,21 +29,25 @@ public class OfferPersistenceService {
 
     @Transactional
     public int upsertAll(List<ProductOfferResponse> offers) {
-        Map<String, ProductOffer> existing = offerRepository.findAll().stream()
-                .collect(Collectors.toMap(
-                        p -> p.getStore() + ":" + p.getExternalId(),
-                        p -> p
-                ));
+        // Carrega todos os produtos existentes no banco e os organiza num mapa
+        // para busca rápida por chave "LOJA:ID_EXTERNO"
+        List<ProductOffer> allExisting = offerRepository.findAll();
+        Map<String, ProductOffer> existing = new HashMap<>();
+        for (ProductOffer p : allExisting) {
+            String key = p.getStore() + ":" + p.getExternalId();
+            existing.put(key, p);
+        }
 
         LocalDateTime now = LocalDateTime.now();
-        List<ProductOffer> toSave = offers.stream()
-                .map(dto -> {
-                    String key = dto.store() + ":" + dto.externalId();
-                    ProductOffer entity = existing.getOrDefault(key, new ProductOffer());
-                    mapToEntity(entity, dto, now);
-                    return entity;
-                })
-                .collect(Collectors.toList());
+        List<ProductOffer> toSave = new ArrayList<>();
+
+        for (ProductOfferResponse dto : offers) {
+            String key = dto.store() + ":" + dto.externalId();
+            // Se já existe no banco, atualiza. Se não existe, cria novo.
+            ProductOffer entity = existing.getOrDefault(key, new ProductOffer());
+            mapToEntity(entity, dto, now);
+            toSave.add(entity);
+        }
 
         List<ProductOffer> saved = offerRepository.saveAll(toSave);
         recordPriceHistory(saved, now);
@@ -52,12 +56,16 @@ public class OfferPersistenceService {
 
     private void recordPriceHistory(List<ProductOffer> saved, LocalDateTime now) {
         List<PriceHistory> snapshots = new ArrayList<>();
+
         for (ProductOffer offer : saved) {
             BigDecimal effective = offer.getCashPrice() != null ? offer.getCashPrice() : offer.getPrice();
+
             if (effective == null || effective.compareTo(BigDecimal.ZERO) <= 0) continue;
             if (Boolean.FALSE.equals(offer.getAvailable())) continue;
+
             snapshots.add(new PriceHistory(offer.getId(), offer.getStore(), effective, now));
         }
+
         if (!snapshots.isEmpty()) {
             priceHistoryRepository.saveAll(snapshots);
         }

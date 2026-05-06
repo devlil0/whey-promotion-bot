@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -77,7 +76,8 @@ public class PromotionService {
             ));
         }
 
-        alerts.sort(Comparator.comparing(PromotionAlert::discountPercent).reversed());
+        // Ordena do maior desconto para o menor
+        alerts.sort((a, b) -> b.discountPercent().compareTo(a.discountPercent()));
         return alerts;
     }
 }

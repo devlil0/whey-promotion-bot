@@ -170,26 +170,22 @@ public class GroqMessageService {
     }
 
     private String positionLabel(int pos) {
-        return switch (pos) {
-            case 1 -> "🥇 1º lugar";
-            case 2 -> "🥈 2º lugar";
-            case 3 -> "🥉 3º lugar";
-            default -> pos + "º lugar";
-        };
+        if (pos == 1) return "🥇 1º lugar";
+        if (pos == 2) return "🥈 2º lugar";
+        if (pos == 3) return "🥉 3º lugar";
+        return pos + "º lugar";
     }
 
     private String storeLabel(String store) {
-        return switch (store) {
-            case "GROWTH"             -> "Growth Supplements";
-            case "DARK_LAB"           -> "Dark Lab";
-            case "PROFIT_LABS"        -> "ProFit Labs";
-            case "SOLDIERS_NUTRITION" -> "Soldiers Nutrition";
-            case "BLACK_SKULL"        -> "Black Skull";
-            case "NUTRATA"            -> "Nutrata";
-            case "ADAPTOGEN"          -> "Adaptogen";
-            case "ABSOLUT_NUTRITION"  -> "Absolut Nutrition";
-            default -> store;
-        };
+        if (store.equals("GROWTH"))             return "Growth Supplements";
+        if (store.equals("DARK_LAB"))           return "Dark Lab";
+        if (store.equals("PROFIT_LABS"))        return "ProFit Labs";
+        if (store.equals("SOLDIERS_NUTRITION")) return "Soldiers Nutrition";
+        if (store.equals("BLACK_SKULL"))        return "Black Skull";
+        if (store.equals("NUTRATA"))            return "Nutrata";
+        if (store.equals("ADAPTOGEN"))          return "Adaptogen";
+        if (store.equals("ABSOLUT_NUTRITION"))  return "Absolut Nutrition";
+        return store;
     }
 
     private String fmt(BigDecimal value) {

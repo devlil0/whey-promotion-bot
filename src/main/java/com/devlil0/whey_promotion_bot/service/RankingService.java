@@ -16,10 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class RankingService {
@@ -50,9 +47,11 @@ public class RankingService {
         scoreRepository.deleteAllInBatch();
         scoreRepository.saveAll(scores);
 
-        return scores.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<RankingItemResponse> result = new ArrayList<>();
+        for (ProductScore score : scores) {
+            result.add(toResponse(score));
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -62,10 +61,11 @@ public class RankingService {
                 ? scoreRepository.findByStoreIgnoreCaseOrderByRankPositionAsc(storeFilter)
                 : scoreRepository.findAllByOrderByRankPositionAsc();
 
-        return scores.stream()
-                .limit(limit)
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<RankingItemResponse> result = new ArrayList<>();
+        for (int i = 0; i < scores.size() && i < limit; i++) {
+            result.add(toResponse(scores.get(i)));
+        }
+        return result;
     }
 
     private List<ProductScore> calculateScores(List<ProductOffer> offers, List<NutritionInfo> allNutrition) {
@@ -79,13 +79,11 @@ public class RankingService {
                 continue;
             }
 
-            Optional<NutritionInfo> nutrition = nutritionMatcher.match(offer, allNutrition);
-            if (nutrition.isEmpty()) {
+            NutritionInfo info = nutritionMatcher.match(offer, allNutrition);
+            if (info == null) {
                 unmatched.add(offer);
                 continue;
             }
-
-            NutritionInfo info = nutrition.get();
             if (info.getTotalProteinGrams() == null
                     || info.getTotalProteinGrams().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
@@ -103,16 +101,17 @@ public class RankingService {
             scores.add(score);
         }
 
-        scores.sort(Comparator.comparing(ProductScore::getCostPerProteinGram));
+        // Ordena do menor custo por grama de proteína para o maior (melhor custo-benefício primeiro)
+        scores.sort((a, b) -> a.getCostPerProteinGram().compareTo(b.getCostPerProteinGram()));
         for (int i = 0; i < scores.size(); i++) {
             scores.get(i).setRankPosition(i + 1);
         }
 
         if (!unmatched.isEmpty()) {
-            List<String> sample = unmatched.stream()
-                    .limit(5)
-                    .map(o -> o.getStore() + ":" + o.getName())
-                    .collect(Collectors.toList());
+            List<String> sample = new ArrayList<>();
+            for (int i = 0; i < unmatched.size() && i < 5; i++) {
+                sample.add(unmatched.get(i).getStore() + ":" + unmatched.get(i).getName());
+            }
             log.warn("{} ofertas sem nutrition match — sample: {}", unmatched.size(), sample);
         }
 

@@ -264,12 +264,10 @@ public class TelegramNotificationService {
     // ── Utilitários ───────────────────────────────────────────────────────────
 
     private String positionMedal(int position) {
-        return switch (position) {
-            case 1 -> "🥇";
-            case 2 -> "🥈";
-            case 3 -> "🥉";
-            default -> "#" + position;
-        };
+        if (position == 1) return "🥇";
+        if (position == 2) return "🥈";
+        if (position == 3) return "🥉";
+        return "#" + position;
     }
 
     private String resolveImageUrl(String url) {
@@ -279,17 +277,15 @@ public class TelegramNotificationService {
     }
 
     private String storeLabel(String store) {
-        return switch (store) {
-            case "GROWTH"             -> "Growth Supplements";
-            case "DARK_LAB"           -> "Dark Lab";
-            case "PROFIT_LABS"        -> "ProFit Labs";
-            case "SOLDIERS_NUTRITION" -> "Soldiers Nutrition";
-            case "BLACK_SKULL"        -> "Black Skull";
-            case "NUTRATA"            -> "Nutrata";
-            case "ADAPTOGEN"          -> "Adaptogen";
-            case "ABSOLUT_NUTRITION"  -> "Absolut Nutrition";
-            default -> store;
-        };
+        if (store.equals("GROWTH"))             return "Growth Supplements";
+        if (store.equals("DARK_LAB"))           return "Dark Lab";
+        if (store.equals("PROFIT_LABS"))        return "ProFit Labs";
+        if (store.equals("SOLDIERS_NUTRITION")) return "Soldiers Nutrition";
+        if (store.equals("BLACK_SKULL"))        return "Black Skull";
+        if (store.equals("NUTRATA"))            return "Nutrata";
+        if (store.equals("ADAPTOGEN"))          return "Adaptogen";
+        if (store.equals("ABSOLUT_NUTRITION"))  return "Absolut Nutrition";
+        return store;
     }
 
     private String formatCurrency(BigDecimal value) {

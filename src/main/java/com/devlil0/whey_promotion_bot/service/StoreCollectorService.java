@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 @Service
 public class StoreCollectorService {
@@ -107,39 +106,7 @@ public class StoreCollectorService {
 
     public List<OfertasFaixaResponse> collectGrowthOfertasByBand() {
         List<ProductOfferResponse> all = collectGrowthOfertasOffers();
-
-        record Band(String label, BigDecimal min, BigDecimal max) {}
-        List<Band> bands = List.of(
-                new Band("Até R$ 20",        BigDecimal.ZERO,              new BigDecimal("20")),
-                new Band("R$ 20 a R$ 40",    new BigDecimal("20"),         new BigDecimal("40")),
-                new Band("R$ 40 a R$ 60",    new BigDecimal("40"),         new BigDecimal("60")),
-                new Band("R$ 60 a R$ 100",   new BigDecimal("60"),         new BigDecimal("100")),
-                new Band("R$ 100 a R$ 150",  new BigDecimal("100"),        new BigDecimal("150")),
-                new Band("R$ 150 a R$ 200",  new BigDecimal("150"),        new BigDecimal("200")),
-                new Band("Acima de R$ 200",  new BigDecimal("200"),        new BigDecimal("999999"))
-        );
-
-        List<OfertasFaixaResponse> result = new ArrayList<>();
-        for (Band band : bands) {
-            List<ProductOfferResponse> inBand = all.stream()
-                    .filter(p -> p.price() != null
-                            && p.price().compareTo(band.min()) >= 0
-                            && p.price().compareTo(band.max()) < 0)
-                    .limit(3)
-                    .toList();
-
-            if (!inBand.isEmpty()) {
-                result.add(new OfertasFaixaResponse(
-                        band.label(),
-                        band.min(),
-                        band.max(),
-                        inBand.size(),
-                        inBand
-                ));
-            }
-        }
-
-        return result;
+        return groupByPriceBand(all);
     }
 
     public List<ProductOfferResponse> collectGrowthShowcaseOffers() {
@@ -196,35 +163,42 @@ public class StoreCollectorService {
 
     public List<OfertasFaixaResponse> collectProfitLabsPromocoesByBand() {
         List<ProductOfferResponse> all = collectProfitLabsPromocoesOffers();
+        return groupByPriceBand(all);
+    }
 
-        record Band(String label, BigDecimal min, BigDecimal max) {}
-        List<Band> bands = List.of(
-                new Band("Até R$ 20",        BigDecimal.ZERO,              new BigDecimal("20")),
-                new Band("R$ 20 a R$ 40",    new BigDecimal("20"),         new BigDecimal("40")),
-                new Band("R$ 40 a R$ 60",    new BigDecimal("40"),         new BigDecimal("60")),
-                new Band("R$ 60 a R$ 100",   new BigDecimal("60"),         new BigDecimal("100")),
-                new Band("R$ 100 a R$ 150",  new BigDecimal("100"),        new BigDecimal("150")),
-                new Band("R$ 150 a R$ 200",  new BigDecimal("150"),        new BigDecimal("200")),
-                new Band("Acima de R$ 200",  new BigDecimal("200"),        new BigDecimal("999999"))
-        );
+    // Agrupa uma lista de produtos por faixas de preço predefinidas
+    private List<OfertasFaixaResponse> groupByPriceBand(List<ProductOfferResponse> all) {
+        String[] labels = {
+                "Até R$ 20", "R$ 20 a R$ 40", "R$ 40 a R$ 60",
+                "R$ 60 a R$ 100", "R$ 100 a R$ 150", "R$ 150 a R$ 200", "Acima de R$ 200"
+        };
+        BigDecimal[] mins = {
+                BigDecimal.ZERO, new BigDecimal("20"), new BigDecimal("40"),
+                new BigDecimal("60"), new BigDecimal("100"), new BigDecimal("150"), new BigDecimal("200")
+        };
+        BigDecimal[] maxs = {
+                new BigDecimal("20"), new BigDecimal("40"), new BigDecimal("60"),
+                new BigDecimal("100"), new BigDecimal("150"), new BigDecimal("200"), new BigDecimal("999999")
+        };
 
         List<OfertasFaixaResponse> result = new ArrayList<>();
-        for (Band band : bands) {
-            List<ProductOfferResponse> inBand = all.stream()
-                    .filter(p -> p.price() != null
-                            && p.price().compareTo(band.min()) >= 0
-                            && p.price().compareTo(band.max()) < 0)
-                    .limit(3)
-                    .toList();
+
+        for (int i = 0; i < labels.length; i++) {
+            BigDecimal min = mins[i];
+            BigDecimal max = maxs[i];
+
+            List<ProductOfferResponse> inBand = new ArrayList<>();
+            for (ProductOfferResponse p : all) {
+                if (p.price() != null
+                        && p.price().compareTo(min) >= 0
+                        && p.price().compareTo(max) < 0) {
+                    inBand.add(p);
+                    if (inBand.size() == 3) break;
+                }
+            }
 
             if (!inBand.isEmpty()) {
-                result.add(new OfertasFaixaResponse(
-                        band.label(),
-                        band.min(),
-                        band.max(),
-                        inBand.size(),
-                        inBand
-                ));
+                result.add(new OfertasFaixaResponse(labels[i], min, max, inBand.size(), inBand));
             }
         }
 
@@ -403,26 +377,30 @@ public class StoreCollectorService {
     public List<ProductOfferResponse> collectAllWheyOffers() {
         List<ProductOfferResponse> offers = new ArrayList<>();
 
-        tryCollect(offers, this::collectGrowthWheyOffers, "Growth");
+        try { offers.addAll(collectGrowthWheyOffers()); }
+        catch (Exception e) { log.warn("Coleta Growth falhou: {}", e.getMessage()); }
 
-        tryCollect(offers, this::collectDarkLabOffers,            "Dark Lab");
-        tryCollect(offers, this::collectProfitLabsOffers,         "ProFit Labs");
-        tryCollect(offers, this::collectSoldiersNutritionOffers,  "Soldiers Nutrition");
-        tryCollect(offers, this::collectBlackSkullOffers,         "Black Skull");
-        tryCollect(offers, this::collectNutrataOffers,            "Nutrata");
-        tryCollect(offers, this::collectAdaptogenOffers,          "Adaptogen");
-        tryCollect(offers, this::collectAbsolutNutritionOffers,   "Absolut Nutrition");
+        try { offers.addAll(collectDarkLabOffers()); }
+        catch (Exception e) { log.warn("Coleta Dark Lab falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectProfitLabsOffers()); }
+        catch (Exception e) { log.warn("Coleta ProFit Labs falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectSoldiersNutritionOffers()); }
+        catch (Exception e) { log.warn("Coleta Soldiers Nutrition falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectBlackSkullOffers()); }
+        catch (Exception e) { log.warn("Coleta Black Skull falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectNutrataOffers()); }
+        catch (Exception e) { log.warn("Coleta Nutrata falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectAdaptogenOffers()); }
+        catch (Exception e) { log.warn("Coleta Adaptogen falhou: {}", e.getMessage()); }
+
+        try { offers.addAll(collectAbsolutNutritionOffers()); }
+        catch (Exception e) { log.warn("Coleta Absolut Nutrition falhou: {}", e.getMessage()); }
 
         return offers;
-    }
-
-    private void tryCollect(List<ProductOfferResponse> target,
-                             Supplier<List<ProductOfferResponse>> collector,
-                             String storeName) {
-        try {
-            target.addAll(collector.get());
-        } catch (Exception e) {
-            log.warn("Coleta {} falhou: {}", storeName, e.getMessage());
-        }
     }
 }
