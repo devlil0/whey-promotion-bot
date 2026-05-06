@@ -15,7 +15,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -26,7 +27,8 @@ import java.util.Map;
 public class EvolutionNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(EvolutionNotificationService.class);
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM HH:mm");
+    private static final ZoneId SAO_PAULO = ZoneId.of("America/Sao_Paulo");
     private static final Locale BR_LOCALE = new Locale("pt", "BR");
     private static final DecimalFormat CURRENCY_FORMAT =
             new DecimalFormat("'R$' #,##0.00", DecimalFormatSymbols.getInstance(BR_LOCALE));
@@ -87,7 +89,7 @@ public class EvolutionNotificationService {
         sendText(String.format(
                 "🔥 *Ofertas %s*\n%d produto%s encontrados\n📅 %s",
                 storeLabel, total, total == 1 ? "" : "s",
-                LocalDateTime.now().format(FORMATTER)
+                ZonedDateTime.now(SAO_PAULO).format(FORMATTER)
         ));
         for (OfertasFaixaResponse band : bands) {
             sendText(String.format("💰 *%s*", band.faixa()));
@@ -105,7 +107,7 @@ public class EvolutionNotificationService {
         sendText(String.format(
                 "⚡ *Oferta Relâmpago — Soldiers Nutrition* — %d produto%s\n📅 %s",
                 products.size(), products.size() == 1 ? "" : "s",
-                LocalDateTime.now().format(FORMATTER)
+                ZonedDateTime.now(SAO_PAULO).format(FORMATTER)
         ));
         for (ProductOfferResponse p : products) {
             String caption = formatOfertaCaption(p, "⚡ Oferta relâmpago");
@@ -143,7 +145,7 @@ public class EvolutionNotificationService {
         return String.format(
                 "🏆 *Ranking Diário de Whey* — Top %d\n📅 %s",
                 total,
-                LocalDateTime.now().format(FORMATTER)
+                ZonedDateTime.now(SAO_PAULO).format(FORMATTER)
         );
     }
 
@@ -173,7 +175,7 @@ public class EvolutionNotificationService {
         return String.format(
                 "📉 *Alertas de Promoção* — %d produto%s\n📅 %s",
                 count, count == 1 ? "" : "s",
-                LocalDateTime.now().format(FORMATTER)
+                ZonedDateTime.now(SAO_PAULO).format(FORMATTER)
         );
     }
 
