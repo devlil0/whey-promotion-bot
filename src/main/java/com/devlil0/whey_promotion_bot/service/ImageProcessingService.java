@@ -22,22 +22,18 @@ import java.util.Iterator;
 public class ImageProcessingService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageProcessingService.class);
-    private static final int TARGET_SIZE = 800;
 
     /**
-     * Downloads the image at the given URL, pads it to a square with a white background,
-     * resizes to 800×800 and re-encodes as JPEG at 97% quality.
+     * Downloads the image at the given URL and re-encodes it as JPEG at 97% quality,
+     * preserving the original dimensions. Transparency is flattened to white.
      *
      * @return processed bytes, or {@code null} if anything goes wrong (caller should fall back to URL)
      */
-    public byte[] processToSquare(String imageUrl) {
+    public byte[] enhance(String imageUrl) {
         try {
             BufferedImage original = downloadImage(imageUrl);
             if (original == null) return null;
-            BufferedImage flat = flattenAlpha(original);
-            BufferedImage padded = padToSquare(flat);
-            BufferedImage resized = resize(padded);
-            return encodeToJpeg(resized);
+            return encodeToJpeg(flattenAlpha(original));
         } catch (Exception e) {
             log.warn("Falha ao processar imagem {}: {}", imageUrl, e.getMessage());
             return null;
@@ -55,7 +51,6 @@ public class ImageProcessingService {
         }
     }
 
-    /** Replaces transparency with a white background so JPEG encoding doesn't produce artifacts. */
     private BufferedImage flattenAlpha(BufferedImage img) {
         if (img.getTransparency() == Transparency.OPAQUE) return img;
         BufferedImage flat = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
@@ -65,33 +60,6 @@ public class ImageProcessingService {
         g.drawImage(img, 0, 0, null);
         g.dispose();
         return flat;
-    }
-
-    /** Centers the image on a white square canvas sized to its largest dimension. */
-    private BufferedImage padToSquare(BufferedImage img) {
-        int w = img.getWidth();
-        int h = img.getHeight();
-        if (w == h) return img;
-        int size = Math.max(w, h);
-        BufferedImage square = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = square.createGraphics();
-        g.setColor(Color.WHITE);
-        g.fillRect(0, 0, size, size);
-        g.drawImage(img, (size - w) / 2, (size - h) / 2, null);
-        g.dispose();
-        return square;
-    }
-
-    private BufferedImage resize(BufferedImage img) {
-        if (img.getWidth() == TARGET_SIZE) return img;
-        BufferedImage resized = new BufferedImage(TARGET_SIZE, TARGET_SIZE, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = resized.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.drawImage(img, 0, 0, TARGET_SIZE, TARGET_SIZE, null);
-        g.dispose();
-        return resized;
     }
 
     private byte[] encodeToJpeg(BufferedImage img) throws IOException {

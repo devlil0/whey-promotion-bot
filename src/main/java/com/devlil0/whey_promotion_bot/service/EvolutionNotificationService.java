@@ -17,6 +17,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -37,13 +38,15 @@ public class EvolutionNotificationService {
     private final String instance;
     private final String number;
     private final boolean enabled;
+    private final ImageProcessingService imageProcessingService;
 
     public EvolutionNotificationService(
             WebClient.Builder builder,
             @Value("${evolution.api.base-url:}") String baseUrl,
             @Value("${evolution.api.api-key:}") String apiKey,
             @Value("${evolution.api.instance:}") String instance,
-            @Value("${evolution.api.number:}") String number
+            @Value("${evolution.api.number:}") String number,
+            ImageProcessingService imageProcessingService
     ) {
         this.instance = instance;
         this.number = number;
@@ -52,6 +55,7 @@ public class EvolutionNotificationService {
                 .baseUrl(baseUrl.isBlank() ? "http://localhost:8081" : baseUrl)
                 .defaultHeader("apikey", apiKey)
                 .build();
+        this.imageProcessingService = imageProcessingService;
     }
 
     // ── Public methods ────────────────────────────────────────────────────────
@@ -249,12 +253,18 @@ public class EvolutionNotificationService {
 
     private void sendMedia(String mediaUrl, String caption) {
         try {
+            byte[] imageBytes = imageProcessingService.enhance(mediaUrl);
             Map<String, Object> body = new HashMap<>();
             body.put("number", number);
             body.put("mediatype", "image");
-            body.put("mimetype", mimeTypeFromUrl(mediaUrl));
             body.put("caption", caption);
-            body.put("media", mediaUrl);
+            if (imageBytes != null) {
+                body.put("mimetype", "image/jpeg");
+                body.put("media", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes));
+            } else {
+                body.put("mimetype", mimeTypeFromUrl(mediaUrl));
+                body.put("media", mediaUrl);
+            }
             webClient.post()
                     .uri("/message/sendMedia/" + instance)
                     .contentType(MediaType.APPLICATION_JSON)

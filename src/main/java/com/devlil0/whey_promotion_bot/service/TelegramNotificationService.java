@@ -309,7 +309,7 @@ public class TelegramNotificationService {
 
     private void sendPhoto(String photoUrl, String caption) {
         try {
-            byte[] imageBytes = imageProcessingService.processToSquare(photoUrl);
+            byte[] imageBytes = imageProcessingService.enhance(photoUrl);
             if (imageBytes != null) {
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
                 builder.part("chat_id", chatId);
