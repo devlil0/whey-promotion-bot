@@ -250,7 +250,7 @@ public class ProductOfferMapper {
             String imageUrl = null;
             JsonNode images = product.path("ProductImage");
             if (images.isArray() && images.size() > 0) {
-                imageUrl = JsonHelper.text(images.get(0), "https");
+                imageUrl = toZoomUrl(JsonHelper.text(images.get(0), "https"));
             }
 
             String productUrl = product.path("url").path("https").asText(null);
@@ -294,7 +294,7 @@ public class ProductOfferMapper {
             String imageUrl = null;
             JsonNode images = product.path("ProductImage");
             if (images.isArray() && images.size() > 0) {
-                imageUrl = JsonHelper.text(images.get(0), "https");
+                imageUrl = toZoomUrl(JsonHelper.text(images.get(0), "https"));
             }
 
             String productUrl = product.path("url").path("https").asText(null);
@@ -343,7 +343,7 @@ public class ProductOfferMapper {
             String imageUrl = null;
             JsonNode images = product.path("ProductImage");
             if (images.isArray() && images.size() > 0) {
-                imageUrl = JsonHelper.text(images.get(0), "https");
+                imageUrl = toZoomUrl(JsonHelper.text(images.get(0), "https"));
             }
 
             String productUrl = product.path("url").path("https").asText(null);
@@ -599,17 +599,29 @@ public class ProductOfferMapper {
             JsonNode originals = img.path("arquivosOriginais");
             if (!originals.isMissingNode()) {
                 if (originals.hasNonNull("zoom"))   return originals.path("zoom").asText();
-                if (originals.hasNonNull("big"))    return originals.path("big").asText();
-                if (originals.hasNonNull("medium")) return originals.path("medium").asText();
-                if (originals.hasNonNull("small"))  return originals.path("small").asText();
+                if (originals.hasNonNull("big"))    return toZoomUrl(originals.path("big").asText());
+                if (originals.hasNonNull("medium")) return toZoomUrl(originals.path("medium").asText());
+                if (originals.hasNonNull("small"))  return toZoomUrl(originals.path("small").asText());
             }
             JsonNode files = img.path("arquivos");
             if (files.hasNonNull("zoom"))   return files.path("zoom").asText();
-            if (files.hasNonNull("big"))    return files.path("big").asText();
-            if (files.hasNonNull("medium")) return files.path("medium").asText();
-            if (files.hasNonNull("small"))  return files.path("small").asText();
+            if (files.hasNonNull("big"))    return toZoomUrl(files.path("big").asText());
+            if (files.hasNonNull("medium")) return toZoomUrl(files.path("medium").asText());
+            if (files.hasNonNull("small"))  return toZoomUrl(files.path("small").asText());
         }
         return null;
+    }
+
+    // Tenta substituir sufixos de tamanho pelo maior disponível (_zoom) na URL do CDN da Growth
+    private String toZoomUrl(String url) {
+        if (url == null || url.isBlank()) return url;
+        for (String size : new String[]{"_small", "_medium", "_big", "_thumb"}) {
+            int idx = url.lastIndexOf(size + ".");
+            if (idx > 0) {
+                return url.substring(0, idx) + "_zoom." + url.substring(idx + size.length() + 1);
+            }
+        }
+        return url;
     }
 
     private boolean isGrowthAvailable(JsonNode product) {
