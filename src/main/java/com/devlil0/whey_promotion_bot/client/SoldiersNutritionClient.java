@@ -36,16 +36,29 @@ public class SoldiersNutritionClient {
     }
 
     public JsonNode getOfertaRelampago(int page, int limit) {
-        try {
-            return getCollectionProducts("/collections/oferta-relampago/products.json", page, limit);
-        } catch (Exception e) {
-            log.warn("Falha ao consultar Soldiers Nutrition em /oferta-relampago, tentando handle legado: {}", e.getMessage());
+        String[] handles = {
+                "/collections/oferta-relampago-1/products.json",
+                "/collections/oferta-relampago/products.json"
+        };
+
+        Exception lastError = null;
+        for (String handle : handles) {
             try {
-                return getCollectionProducts("/collections/oferta-relampago-1/products.json", page, limit);
-            } catch (Exception fallbackException) {
-                throw new ExternalApiException("Falha ao consultar Soldiers Nutrition oferta relâmpago", fallbackException);
+                JsonNode result = getCollectionProducts(handle, page, limit);
+                if (result.path("products").isArray() && result.path("products").size() > 0) {
+                    return result;
+                }
+                log.debug("Soldiers Nutrition {} retornou 0 produtos, tentando próximo handle", handle);
+            } catch (Exception e) {
+                log.warn("Falha ao consultar Soldiers Nutrition em {}: {}", handle, e.getMessage());
+                lastError = e;
             }
         }
+
+        if (lastError != null) {
+            throw new ExternalApiException("Falha ao consultar Soldiers Nutrition oferta relâmpago", lastError);
+        }
+        return getCollectionProducts(handles[0], page, limit);
     }
 
     private JsonNode getCollectionProducts(String path, int page, int limit) {

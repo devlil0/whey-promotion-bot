@@ -8,6 +8,7 @@ import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
 import com.devlil0.whey_promotion_bot.service.StoreCollectorService;
+import com.devlil0.whey_promotion_bot.service.EvolutionNotificationService;
 import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,17 +28,20 @@ public class PriceCollectionScheduler {
     private final RankingService rankingService;
     private final PromotionService promotionService;
     private final TelegramNotificationService telegramService;
+    private final EvolutionNotificationService evolutionService;
 
     public PriceCollectionScheduler(StoreCollectorService collectorService,
                                      OfferPersistenceService persistenceService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
-                                     TelegramNotificationService telegramService) {
+                                     TelegramNotificationService telegramService,
+                                     EvolutionNotificationService evolutionService) {
         this.collectorService = collectorService;
         this.persistenceService = persistenceService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.telegramService = telegramService;
+        this.evolutionService = evolutionService;
     }
 
     @Scheduled(cron = "0 0 8,20 * * *", zone = "America/Sao_Paulo")
@@ -54,36 +58,41 @@ public class PriceCollectionScheduler {
         if (promotions.isEmpty()) {
             log.info("Nenhuma promoção detectada nesta coleta.");
         } else {
-            log.info("{} promoções detectadas — enviando ao Telegram.", promotions.size());
+            log.info("{} promoções detectadas — enviando notificações.", promotions.size());
             telegramService.sendPromotions(promotions);
+            evolutionService.sendPromotions(promotions);
         }
     }
 
     @Scheduled(cron = "0 5 8 * * *", zone = "America/Sao_Paulo")
     public void sendDailyRanking() {
-        log.info("Enviando ranking diário ao Telegram — {}", LocalDateTime.now());
+        log.info("Enviando ranking diário — {}", LocalDateTime.now());
         List<RankingItemResponse> ranking = rankingService.getRanking(10, null);
         telegramService.sendRanking(ranking);
+        evolutionService.sendRanking(ranking);
     }
 
     @Scheduled(cron = "0 0 12 * * *", zone = "America/Sao_Paulo")
     public void sendGrowthOfertas() {
-        log.info("Enviando ofertas Growth Supplements ao Telegram — {}", LocalDateTime.now());
+        log.info("Enviando ofertas Growth Supplements — {}", LocalDateTime.now());
         List<OfertasFaixaResponse> ofertas = collectorService.collectGrowthOfertasByBand();
         telegramService.sendOfertas(ofertas, "Growth Supplements");
+        evolutionService.sendOfertas(ofertas, "Growth Supplements");
     }
 
     @Scheduled(cron = "0 0 16 * * *", zone = "America/Sao_Paulo")
     public void sendProfitLabsPromocoes() {
-        log.info("Enviando promoções ProFit Labs ao Telegram — {}", LocalDateTime.now());
+        log.info("Enviando promoções ProFit Labs — {}", LocalDateTime.now());
         List<OfertasFaixaResponse> promocoes = collectorService.collectProfitLabsPromocoesByBand();
         telegramService.sendOfertas(promocoes, "ProFit Labs");
+        evolutionService.sendOfertas(promocoes, "ProFit Labs");
     }
 
     @Scheduled(cron = "0 10 20 * * *", zone = "America/Sao_Paulo")
     public void sendSoldiersOfertaRelampago() {
-        log.info("Enviando oferta relâmpago Soldiers Nutrition ao Telegram — {}", LocalDateTime.now());
+        log.info("Enviando oferta relâmpago Soldiers Nutrition — {}", LocalDateTime.now());
         List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
         telegramService.sendOfertaRelampago(ofertas);
+        evolutionService.sendOfertaRelampago(ofertas);
     }
 }

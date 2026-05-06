@@ -15,20 +15,66 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: evolution_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
 
   whey_promotion_bot:
     build: .
     container_name: whey_promotion_bot
     ports:
       - "8080:8080"
+    env_file: .env
     environment:
-      - GROWTH_API_APP_TOKEN=wapstore
+      - TZ=America/Sao_Paulo
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/whey_db
       - SPRING_DATASOURCE_USERNAME=whey_user
       - SPRING_DATASOURCE_PASSWORD=whey_pass
+      - EVOLUTION_API_URL=http://evolution-api:8080
     depends_on:
       postgres:
         condition: service_healthy
+      evolution-api:
+        condition: service_started
+    restart: unless-stopped
+
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: evolution_api
+    ports:
+      - "8081:8080"
+    env_file: .env
+    environment:
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8081}
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-changeme}
+      - QRCODE_LIMIT=30
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://whey_user:whey_pass@postgres:5432/evolution_db
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=false
+      - DATABASE_SAVE_MESSAGE_UPDATE=false
+      - DATABASE_SAVE_DATA_CONTACTS=false
+      - DATABASE_SAVE_DATA_CHATS=false
+      - DATABASE_SAVE_DATA_LABELS=false
+      - DATABASE_SAVE_DATA_HISTORIC=false
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_SAVE_INSTANCES=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   postgres_data:
