@@ -1,0 +1,202 @@
+package com.devlil0.whey_promotion_bot.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
+import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
+import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+@Service
+public class GroqMessageService {
+
+    private static final Logger log = LoggerFactory.getLogger(GroqMessageService.class);
+    private static final Locale BR_LOCALE = new Locale("pt", "BR");
+    private static final DecimalFormat CURRENCY_FORMAT =
+            new DecimalFormat("'R$' #,##0.00", DecimalFormatSymbols.getInstance(BR_LOCALE));
+    private static final DecimalFormat ONE_DECIMAL =
+            new DecimalFormat("#,##0.0", DecimalFormatSymbols.getInstance(BR_LOCALE));
+
+    private static final String SYSTEM_PROMPT_WHATSAPP = """
+            Você é copywriter especialista em suplementos esportivos para grupos de WhatsApp.
+            Gere mensagens de vendas persuasivas, diretas e com boa energia. Sempre em português do Brasil.
+            Use markdown do WhatsApp: *negrito*, _itálico_, ~tachado~.
+            Use emojis estrategicamente. Máximo 12 linhas.
+            Não inclua o link do produto — ele será adicionado automaticamente ao final.
+            Responda SOMENTE com a mensagem final, sem explicações adicionais.
+            """;
+
+    private static final String SYSTEM_PROMPT_HTML = """
+            Você é copywriter especialista em suplementos esportivos para grupos do Telegram.
+            Gere mensagens de vendas persuasivas, diretas e com boa energia. Sempre em português do Brasil.
+            Use HTML do Telegram: <b>negrito</b>, <i>itálico</i>, <s>tachado</s>.
+            Use emojis estrategicamente. Máximo 12 linhas.
+            Não inclua o link do produto — ele será adicionado automaticamente ao final.
+            Responda SOMENTE com a mensagem final, sem explicações adicionais.
+            """;
+
+    public enum Format { WHATSAPP, HTML }
+
+    private final WebClient webClient;
+    private final String model;
+    private final boolean enabled;
+
+    public GroqMessageService(
+            WebClient.Builder builder,
+            @Value("${groq.api.base-url:https://api.groq.com}") String baseUrl,
+            @Value("${groq.api.api-key:}") String apiKey,
+            @Value("${groq.api.model:llama-3.3-70b-versatile}") String model
+    ) {
+        this.model = model;
+        this.enabled = !apiKey.isBlank();
+        this.webClient = builder
+                .baseUrl(baseUrl)
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .build();
+    }
+
+    public String generateRankingCaption(RankingItemResponse item) {
+        return generateRankingCaption(item, Format.WHATSAPP);
+    }
+
+    public String generateRankingCaption(RankingItemResponse item, Format format) {
+        if (!enabled) return null;
+        return call(buildRankingPrompt(item), format);
+    }
+
+    public String generatePromotionCaption(PromotionAlert p) {
+        return generatePromotionCaption(p, Format.WHATSAPP);
+    }
+
+    public String generatePromotionCaption(PromotionAlert p, Format format) {
+        if (!enabled) return null;
+        return call(buildPromotionPrompt(p), format);
+    }
+
+    public String generateOfertaCaption(ProductOfferResponse p, String badge) {
+        return generateOfertaCaption(p, badge, Format.WHATSAPP);
+    }
+
+    public String generateOfertaCaption(ProductOfferResponse p, String badge, Format format) {
+        if (!enabled) return null;
+        return call(buildOfertaPrompt(p, badge), format);
+    }
+
+    private String call(String userPrompt, Format format) {
+        String systemPrompt = format == Format.HTML ? SYSTEM_PROMPT_HTML : SYSTEM_PROMPT_WHATSAPP;
+        try {
+            Map<String, Object> body = Map.of(
+                    "model", model,
+                    "messages", List.of(
+                            Map.of("role", "system", "content", systemPrompt),
+                            Map.of("role", "user", "content", userPrompt)
+                    ),
+                    "max_tokens", 400,
+                    "temperature", 0.8
+            );
+
+            JsonNode response = webClient.post()
+                    .uri("/openai/v1/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .timeout(Duration.ofSeconds(8))
+                    .block();
+
+            if (response != null && response.has("choices")) {
+                return response.get("choices").get(0).get("message").get("content").asText().trim();
+            }
+        } catch (Exception e) {
+            log.warn("Groq indisponível, usando template: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private String buildRankingPrompt(RankingItemResponse item) {
+        BigDecimal price = item.cashPrice() != null ? item.cashPrice() : item.price();
+        String pixNote = item.cashPrice() != null ? " (no pix)" : "";
+        return "Gere uma mensagem para ranking de melhor custo-benefício de whey protein.\n" +
+                "Posição: " + positionLabel(item.position()) + "\n" +
+                "Produto: " + item.name() + "\n" +
+                "Loja: " + storeLabel(item.store()) + "\n" +
+                (price != null ? "Preço: " + fmt(price) + pixNote + "\n" : "") +
+                "Custo de proteína: " + centavos(item.pricePerProteinGram()) + " centavos/g\n" +
+                (item.weightGrams() != null ? "Gramatura: " + item.weightGrams() + "g\n" : "") +
+                (item.proteinPerServingGrams() != null
+                        ? "Proteína por dose: " + item.proteinPerServingGrams().stripTrailingZeros().toPlainString() + "g\n"
+                        : "");
+    }
+
+    private String buildPromotionPrompt(PromotionAlert p) {
+        BigDecimal disc = p.discountPercent().multiply(BigDecimal.valueOf(100));
+        return "Gere uma mensagem de alerta: preço do produto caiu abaixo da média histórica.\n" +
+                "Produto: " + p.name() + "\n" +
+                "Loja: " + storeLabel(p.store()) + "\n" +
+                "Preço anterior (média 7 dias): " + fmt(p.averagePrice()) + "\n" +
+                "Preço atual: " + fmt(p.currentPrice()) + "\n" +
+                "Queda: " + String.format("%.1f%%", disc) + " abaixo da média\n" +
+                "Custo de proteína: " + centavos(p.pricePerProteinGram()) + " centavos/g\n" +
+                (p.weightGrams() != null ? "Gramatura: " + p.weightGrams() + "g\n" : "") +
+                (p.proteinPerServingGrams() != null
+                        ? "Proteína por dose: " + p.proteinPerServingGrams().stripTrailingZeros().toPlainString() + "g\n"
+                        : "");
+    }
+
+    private String buildOfertaPrompt(ProductOfferResponse p, String badge) {
+        BigDecimal price = p.cashPrice() != null ? p.cashPrice() : p.price();
+        boolean isPix = p.cashPrice() != null && p.price() != null
+                && p.cashPrice().compareTo(p.price()) < 0;
+        String priceStr = p.oldPrice() != null && price != null
+                ? "~" + fmt(p.oldPrice()) + "~ → " + fmt(price) + (isPix ? " (no pix)" : "")
+                : (price != null ? fmt(price) + (isPix ? " (no pix)" : "") : "não informado");
+        return "Gere uma mensagem de oferta para suplemento. Tipo: " + badge + "\n" +
+                "Produto: " + p.name() + "\n" +
+                "Loja: " + storeLabel(p.store()) + "\n" +
+                "Preço: " + priceStr + "\n" +
+                (p.weightGrams() != null ? "Gramatura: " + p.weightGrams() + "g\n" : "");
+    }
+
+    private String positionLabel(int pos) {
+        return switch (pos) {
+            case 1 -> "🥇 1º lugar";
+            case 2 -> "🥈 2º lugar";
+            case 3 -> "🥉 3º lugar";
+            default -> pos + "º lugar";
+        };
+    }
+
+    private String storeLabel(String store) {
+        return switch (store) {
+            case "GROWTH"             -> "Growth Supplements";
+            case "DARK_LAB"           -> "Dark Lab";
+            case "PROFIT_LABS"        -> "ProFit Labs";
+            case "SOLDIERS_NUTRITION" -> "Soldiers Nutrition";
+            case "BLACK_SKULL"        -> "Black Skull";
+            case "NUTRATA"            -> "Nutrata";
+            case "ADAPTOGEN"          -> "Adaptogen";
+            case "ABSOLUT_NUTRITION"  -> "Absolut Nutrition";
+            default -> store;
+        };
+    }
+
+    private String fmt(BigDecimal value) {
+        return CURRENCY_FORMAT.format(value);
+    }
+
+    private String centavos(BigDecimal pricePerG) {
+        return ONE_DECIMAL.format(pricePerG.multiply(BigDecimal.valueOf(100)));
+    }
+}

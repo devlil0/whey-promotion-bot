@@ -70,6 +70,12 @@ evolution:
 api:
   key: ${API_KEY:}
 
+groq:
+  api:
+    base-url: https://api.groq.com
+    api-key: ${GROQ_API_KEY:}
+    model: llama-3.3-70b-versatile
+
 promotion:
   discount-threshold: 0.05
   history-days: 7

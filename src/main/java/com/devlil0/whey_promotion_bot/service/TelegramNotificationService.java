@@ -38,12 +38,14 @@ public class TelegramNotificationService {
     private final String chatId;
     private final boolean enabled;
     private final ImageProcessingService imageProcessingService;
+    private final GroqMessageService groq;
 
     public TelegramNotificationService(
             WebClient.Builder builder,
             @Value("${telegram.bot-token:}") String botToken,
             @Value("${telegram.chat-id:}") String chatId,
-            ImageProcessingService imageProcessingService
+            ImageProcessingService imageProcessingService,
+            GroqMessageService groq
     ) {
         this.chatId = chatId;
         this.enabled = !botToken.isBlank() && !chatId.isBlank();
@@ -51,6 +53,7 @@ public class TelegramNotificationService {
                 .baseUrl("https://api.telegram.org/bot" + botToken)
                 .build();
         this.imageProcessingService = imageProcessingService;
+        this.groq = groq;
     }
 
     // ── Ranking ──────────────────────────────────────────────────────────────
@@ -134,6 +137,11 @@ public class TelegramNotificationService {
      * 🔗 Ver produto
      */
     private String formatOfertaCaption(ProductOfferResponse p, String badge) {
+        String ai = groq.generateOfertaCaption(p, badge, GroqMessageService.Format.HTML);
+        if (ai != null) return p.productUrl() != null
+                ? ai + "\n\n🔗 <a href=\"" + p.productUrl() + "\">Ver produto</a>"
+                : ai;
+
         BigDecimal effectivePrice = p.cashPrice() != null ? p.cashPrice() : p.price();
         StringBuilder sb = new StringBuilder();
         sb.append(badge).append("\n");
@@ -178,6 +186,11 @@ public class TelegramNotificationService {
      * 🔗 Ver produto
      */
     private String formatRankingCaption(RankingItemResponse item) {
+        String ai = groq.generateRankingCaption(item, GroqMessageService.Format.HTML);
+        if (ai != null) return item.productUrl() != null
+                ? ai + "\n\n🔗 <a href=\"" + item.productUrl() + "\">Ver produto</a>"
+                : ai;
+
         BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("%s Melhor custo-benefício\n", positionMedal(item.position())));
@@ -222,6 +235,11 @@ public class TelegramNotificationService {
      * 🔗 Comprar agora
      */
     private String formatPromotionCaption(PromotionAlert p) {
+        String ai = groq.generatePromotionCaption(p, GroqMessageService.Format.HTML);
+        if (ai != null) return p.productUrl() != null
+                ? ai + "\n\n🔗 <a href=\"" + p.productUrl() + "\">Comprar agora</a>"
+                : ai;
+
         BigDecimal discountPct = p.discountPercent().multiply(BigDecimal.valueOf(100));
         StringBuilder sb = new StringBuilder();
         sb.append("📉 Preço caiu\n");

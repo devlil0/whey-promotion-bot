@@ -37,17 +37,20 @@ public class EvolutionNotificationService {
     private final String instance;
     private final String number;
     private final boolean enabled;
+    private final GroqMessageService groq;
 
     public EvolutionNotificationService(
             WebClient.Builder builder,
             @Value("${evolution.api.base-url:}") String baseUrl,
             @Value("${evolution.api.api-key:}") String apiKey,
             @Value("${evolution.api.instance:}") String instance,
-            @Value("${evolution.api.number:}") String number
+            @Value("${evolution.api.number:}") String number,
+            GroqMessageService groq
     ) {
         this.instance = instance;
         this.number = number;
         this.enabled = !baseUrl.isBlank() && !apiKey.isBlank() && !instance.isBlank() && !number.isBlank();
+        this.groq = groq;
         this.webClient = builder
                 .baseUrl(baseUrl.isBlank() ? "http://localhost:8081" : baseUrl)
                 .defaultHeader("apikey", apiKey)
@@ -115,6 +118,9 @@ public class EvolutionNotificationService {
     // ── Templates (WhatsApp markdown) ─────────────────────────────────────────
 
     private String formatOfertaCaption(ProductOfferResponse p, String badge) {
+        String ai = groq.generateOfertaCaption(p, badge);
+        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 " + p.productUrl() : ai;
+
         BigDecimal effectivePrice = p.cashPrice() != null ? p.cashPrice() : p.price();
         StringBuilder sb = new StringBuilder();
         sb.append(badge).append("\n");
@@ -142,6 +148,9 @@ public class EvolutionNotificationService {
     }
 
     private String formatRankingCaption(RankingItemResponse item) {
+        String ai = groq.generateRankingCaption(item);
+        if (ai != null) return item.productUrl() != null ? ai + "\n\n🔗 " + item.productUrl() : ai;
+
         BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("%s Melhor custo-benefício\n", positionMedal(item.position())));
@@ -169,6 +178,9 @@ public class EvolutionNotificationService {
     }
 
     private String formatPromotionCaption(PromotionAlert p) {
+        String ai = groq.generatePromotionCaption(p);
+        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 " + p.productUrl() : ai;
+
         BigDecimal discountPct = p.discountPercent().multiply(BigDecimal.valueOf(100));
         StringBuilder sb = new StringBuilder();
         sb.append("📉 Preço caiu\n");
