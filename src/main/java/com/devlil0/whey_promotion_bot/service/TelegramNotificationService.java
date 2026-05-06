@@ -9,7 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
@@ -35,17 +37,20 @@ public class TelegramNotificationService {
     private final WebClient webClient;
     private final String chatId;
     private final boolean enabled;
+    private final ImageProcessingService imageProcessingService;
 
     public TelegramNotificationService(
             WebClient.Builder builder,
             @Value("${telegram.bot-token:}") String botToken,
-            @Value("${telegram.chat-id:}") String chatId
+            @Value("${telegram.chat-id:}") String chatId,
+            ImageProcessingService imageProcessingService
     ) {
         this.chatId = chatId;
         this.enabled = !botToken.isBlank() && !chatId.isBlank();
         this.webClient = builder
                 .baseUrl("https://api.telegram.org/bot" + botToken)
                 .build();
+        this.imageProcessingService = imageProcessingService;
     }
 
     // ── Ranking ──────────────────────────────────────────────────────────────
@@ -304,18 +309,34 @@ public class TelegramNotificationService {
 
     private void sendPhoto(String photoUrl, String caption) {
         try {
-            webClient.post()
-                    .uri("/sendPhoto")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(Map.<String, Object>of(
-                            "chat_id", chatId,
-                            "photo", photoUrl,
-                            "caption", caption,
-                            "parse_mode", "HTML"
-                    ))
-                    .retrieve()
-                    .bodyToMono(JsonNode.class)
-                    .block();
+            byte[] imageBytes = imageProcessingService.processToSquare(photoUrl);
+            if (imageBytes != null) {
+                MultipartBodyBuilder builder = new MultipartBodyBuilder();
+                builder.part("chat_id", chatId);
+                builder.part("photo", imageBytes).filename("photo.jpg").contentType(MediaType.IMAGE_JPEG);
+                builder.part("caption", caption);
+                builder.part("parse_mode", "HTML");
+                webClient.post()
+                        .uri("/sendPhoto")
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(BodyInserters.fromMultipartData(builder.build()))
+                        .retrieve()
+                        .bodyToMono(JsonNode.class)
+                        .block();
+            } else {
+                webClient.post()
+                        .uri("/sendPhoto")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.<String, Object>of(
+                                "chat_id", chatId,
+                                "photo", photoUrl,
+                                "caption", caption,
+                                "parse_mode", "HTML"
+                        ))
+                        .retrieve()
+                        .bodyToMono(JsonNode.class)
+                        .block();
+            }
         } catch (Exception e) {
             log.error("Falha ao enviar foto Telegram (url={}): {}", photoUrl, e.getMessage());
         }

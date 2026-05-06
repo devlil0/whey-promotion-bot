@@ -6,3 +6,4 @@ target/
 .claude/
 postman/
 AGENTS.md
+cloudflare-worker/
