@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import org.springframework.http.MediaType;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -91,8 +93,9 @@ public class EvolutionSetupController {
             boolean found = existing != null && existing.isArray() && existing.size() > 0;
             if (!found) {
                 log.info("Instância '{}' não encontrada, criando...", instance);
-                webClient.post()
+                JsonNode created = webClient.post()
                         .uri("/instance/create")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(Map.of(
                                 "instanceName", instance,
                                 "qrcode", true,
@@ -101,10 +104,13 @@ public class EvolutionSetupController {
                         .retrieve()
                         .bodyToMono(JsonNode.class)
                         .block();
-                log.info("Instância '{}' criada.", instance);
+                log.info("Instância '{}' criada: {}", instance, created);
+            } else {
+                log.info("Instância '{}' já existe.", instance);
             }
         } catch (Exception e) {
-            log.warn("Não foi possível verificar/criar instância: {}", e.getMessage());
+            log.error("Falha ao verificar/criar instância '{}': {}", instance, e.getMessage());
+            throw new RuntimeException("Falha ao criar instância Evolution: " + e.getMessage(), e);
         }
     }
 
