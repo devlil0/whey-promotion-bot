@@ -181,4 +181,44 @@ public class EvolutionSetupController {
             return Map.of("error", e.getMessage());
         }
     }
+
+    /**
+     * Lista todos os canais (newsletters) WhatsApp da instância com nome e JID.
+     * Use o "jid" retornado como valor de EVOLUTION_NUMBER (ex: 120363xxx@newsletter).
+     */
+    @GetMapping("/channels")
+    public Map<String, Object> channels() {
+        if (!configured) return Map.of("error", "Evolution API não configurada");
+        try {
+            JsonNode response = webClient.post()
+                    .uri("/chat/findChats/" + instance)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(Map.of())
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (response == null) return Map.of("error", "Sem resposta da Evolution API");
+
+            List<Map<String, String>> channels = new ArrayList<>();
+            if (response.isArray()) {
+                for (JsonNode chat : response) {
+                    String jid = chat.path("remoteJid").asText(chat.path("id").asText(null));
+                    if (jid == null || !jid.endsWith("@newsletter")) continue;
+                    String name = chat.path("name").asText(chat.path("pushName").asText("(sem nome)"));
+                    channels.add(Map.of("name", name, "jid", jid));
+                }
+            }
+
+            channels.sort((a, b) -> a.get("name").compareToIgnoreCase(b.get("name")));
+            return Map.of(
+                    "total", channels.size(),
+                    "instrucao", "Copie o 'jid' do canal desejado e configure como EVOLUTION_NUMBER",
+                    "channels", channels
+            );
+        } catch (Exception e) {
+            log.error("Erro ao listar canais Evolution: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
+        }
+    }
 }
