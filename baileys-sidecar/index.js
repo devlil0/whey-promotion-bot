@@ -17,7 +17,12 @@ let ready = false;
 
 async function connect() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-  const { version } = await fetchLatestBaileysVersion();
+  let version;
+  try {
+    ({ version } = await fetchLatestBaileysVersion());
+  } catch (err) {
+    logger.warn({ err: err.message }, 'fetchLatestBaileysVersion falhou — usando default');
+  }
 
   sock = makeWASocket({
     version,
@@ -48,8 +53,6 @@ async function connect() {
     }
   });
 }
-
-await connect();
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -87,4 +90,7 @@ app.post('/send-image', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => logger.info(`Sidecar Baileys ouvindo em :${PORT}`));
+app.listen(PORT, () => {
+  logger.info(`Sidecar Baileys ouvindo em :${PORT}`);
+  connect().catch(err => logger.error({ err: err.message }, 'connect failed'));
+});
