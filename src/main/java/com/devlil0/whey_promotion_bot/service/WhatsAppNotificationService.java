@@ -115,7 +115,7 @@ public class WhatsAppNotificationService {
 
     private String formatOfertaCaption(ProductOfferResponse p, String badge) {
         String ai = groq.generateOfertaCaption(p, badge);
-        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 Comprar agora: " + p.productUrl() : ai;
+        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 Comprar agora na " + storeLabel(p.store()) + ":\n" + p.productUrl() : ai;
 
         BigDecimal effectivePrice = p.cashPrice() != null ? p.cashPrice() : p.price();
         StringBuilder sb = new StringBuilder();
@@ -131,7 +131,7 @@ public class WhatsAppNotificationService {
             sb.append("_no pix_\n");
         }
         if (p.weightGrams() != null) sb.append(String.format("%dg\n", p.weightGrams()));
-        if (p.productUrl() != null) sb.append(String.format("\n🔗 Comprar agora: %s", p.productUrl()));
+        if (p.productUrl() != null) sb.append(String.format("\n\n🔗 Comprar agora na %s:\n%s", storeLabel(p.store()), p.productUrl()));
         return sb.toString();
     }
 
@@ -145,7 +145,7 @@ public class WhatsAppNotificationService {
 
     private String formatRankingCaption(RankingItemResponse item) {
         String ai = groq.generateRankingCaption(item);
-        if (ai != null) return item.productUrl() != null ? ai + "\n\n🔗 Comprar agora: " + item.productUrl() : ai;
+        if (ai != null) return item.productUrl() != null ? ai + "\n\n🔗 Comprar agora na " + storeLabel(item.store()) + ":\n" + item.productUrl() : ai;
 
         BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
         StringBuilder sb = new StringBuilder();
@@ -161,7 +161,7 @@ public class WhatsAppNotificationService {
             if (!weight.isBlank() && !protein.isBlank()) sb.append(weight).append(" · ").append(protein).append("\n");
             else sb.append(weight).append(protein).append("\n");
         }
-        if (item.productUrl() != null) sb.append(String.format("\n🔗 Comprar agora: %s", item.productUrl()));
+        if (item.productUrl() != null) sb.append(String.format("\n\n🔗 Comprar agora na %s:\n%s", storeLabel(item.store()), item.productUrl()));
         return sb.toString();
     }
 
@@ -175,7 +175,7 @@ public class WhatsAppNotificationService {
 
     private String formatPromotionCaption(PromotionAlert p) {
         String ai = groq.generatePromotionCaption(p);
-        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 Comprar agora: " + p.productUrl() : ai;
+        if (ai != null) return p.productUrl() != null ? ai + "\n\n🔗 Comprar agora na " + storeLabel(p.store()) + ":\n" + p.productUrl() : ai;
 
         BigDecimal discountPct = p.discountPercent().multiply(BigDecimal.valueOf(100));
         StringBuilder sb = new StringBuilder();
@@ -192,7 +192,7 @@ public class WhatsAppNotificationService {
             if (!weight.isBlank() && !protein.isBlank()) sb.append(weight).append(" · ").append(protein).append("\n");
             else sb.append(weight).append(protein).append("\n");
         }
-        if (p.productUrl() != null) sb.append(String.format("\n🔗 Comprar agora: %s", p.productUrl()));
+        if (p.productUrl() != null) sb.append(String.format("\n\n🔗 Comprar agora na %s:\n%s", storeLabel(p.store()), p.productUrl()));
         return sb.toString();
     }
 

@@ -141,7 +141,7 @@ public class TelegramNotificationService {
     private String formatOfertaCaption(ProductOfferResponse p, String badge) {
         String ai = groq.generateOfertaCaption(p, badge, GroqMessageService.Format.HTML);
         if (ai != null) return p.productUrl() != null
-                ? ai + "\n\n🔗 <a href=\"" + p.productUrl() + "\">Ver produto</a>"
+                ? ai + "\n\n🔗 Comprar agora na " + storeLabel(p.store()) + ":\n<a href=\"" + p.productUrl() + "\">" + p.productUrl() + "</a>"
                 : ai;
 
         BigDecimal effectivePrice = p.cashPrice() != null ? p.cashPrice() : p.price();
@@ -159,7 +159,7 @@ public class TelegramNotificationService {
         }
         if (p.weightGrams() != null) sb.append(String.format("%dg\n", p.weightGrams()));
         if (p.productUrl() != null) {
-            sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", p.productUrl()));
+            sb.append(String.format("\n\n🔗 Comprar agora na %s:\n<a href=\"%s\">%s</a>", storeLabel(p.store()), p.productUrl(), p.productUrl()));
         }
         return sb.toString();
     }
@@ -190,7 +190,7 @@ public class TelegramNotificationService {
     private String formatRankingCaption(RankingItemResponse item) {
         String ai = groq.generateRankingCaption(item, GroqMessageService.Format.HTML);
         if (ai != null) return item.productUrl() != null
-                ? ai + "\n\n🔗 <a href=\"" + item.productUrl() + "\">Ver produto</a>"
+                ? ai + "\n\n🔗 Comprar agora na " + storeLabel(item.store()) + ":\n<a href=\"" + item.productUrl() + "\">" + item.productUrl() + "</a>"
                 : ai;
 
         BigDecimal effectivePrice = item.cashPrice() != null ? item.cashPrice() : item.price();
@@ -208,7 +208,7 @@ public class TelegramNotificationService {
             else sb.append(weight).append(protein).append("\n");
         }
         if (item.productUrl() != null) {
-            sb.append(String.format("\n🔗 <a href=\"%s\">Ver produto</a>", item.productUrl()));
+            sb.append(String.format("\n\n🔗 Comprar agora na %s:\n<a href=\"%s\">%s</a>", storeLabel(item.store()), item.productUrl(), item.productUrl()));
         }
         return sb.toString();
     }
@@ -239,7 +239,7 @@ public class TelegramNotificationService {
     private String formatPromotionCaption(PromotionAlert p) {
         String ai = groq.generatePromotionCaption(p, GroqMessageService.Format.HTML);
         if (ai != null) return p.productUrl() != null
-                ? ai + "\n\n🔗 <a href=\"" + p.productUrl() + "\">Comprar agora</a>"
+                ? ai + "\n\n🔗 Comprar agora na " + storeLabel(p.store()) + ":\n<a href=\"" + p.productUrl() + "\">" + p.productUrl() + "</a>"
                 : ai;
 
         BigDecimal discountPct = p.discountPercent().multiply(BigDecimal.valueOf(100));
@@ -258,7 +258,7 @@ public class TelegramNotificationService {
             else sb.append(weight).append(protein).append("\n");
         }
         if (p.productUrl() != null) {
-            sb.append(String.format("\n🔗 <a href=\"%s\">Comprar agora</a>", p.productUrl()));
+            sb.append(String.format("\n\n🔗 Comprar agora na %s:\n<a href=\"%s\">%s</a>", storeLabel(p.store()), p.productUrl(), p.productUrl()));
         }
         return sb.toString();
     }
