@@ -60,12 +60,11 @@ telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}
   chat-id: ${TELEGRAM_CHAT_ID:-5080521415}
 
-evolution:
-  api:
-    base-url: ${EVOLUTION_API_URL:http://localhost:8081}
-    api-key: ${EVOLUTION_API_KEY:}
-    instance: ${EVOLUTION_INSTANCE:whey-bot}
-    number: ${EVOLUTION_NUMBER:}
+zapi:
+  instance-id: ${ZAPI_INSTANCE_ID:}
+  instance-token: ${ZAPI_INSTANCE_TOKEN:}
+  client-token: ${ZAPI_CLIENT_TOKEN:}
+  phone: ${ZAPI_PHONE:}
 
 api:
   key: ${API_KEY:}

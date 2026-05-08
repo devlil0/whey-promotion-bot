@@ -30,7 +30,7 @@ Bot que monitora preços de whey protein em 8 lojas brasileiras, calcula o melho
 | Banco de dados | PostgreSQL |
 | ORM | Spring Data JPA / Hibernate |
 | Geração de mensagens | Groq API (Llama 3.3 70B) |
-| Notificações | Telegram Bot API + Evolution API (WhatsApp) |
+| Notificações | Telegram Bot API + Z-API (WhatsApp) |
 | Containerização | Docker + Docker Compose |
 | Deploy | Railway |
 
@@ -63,7 +63,7 @@ Scheduler
     │                         └─ PromotionService (compara vs média 7 dias)
     │                               └─ GroqMessageService (gera caption via IA)
     │                                     ├─ TelegramNotificationService
-    │                                     └─ EvolutionNotificationService (WhatsApp)
+    │                                     └─ ZApiNotificationService (WhatsApp)
     │
     ├─ 08h05 ──► Ranking diário (Telegram + WhatsApp)
     ├─ 12h00 ──► Ofertas Growth por faixa de preço (Telegram + WhatsApp)
@@ -118,14 +118,14 @@ POST /api/telegram/trigger/profitlabs-promocoes
 POST /api/telegram/trigger/soldiers-relampago
 ```
 
-### Disparo manual — WhatsApp (Evolution)
+### Disparo manual — WhatsApp (Z-API)
 
 ```
-POST /api/evolution/trigger/ranking?top=10
-POST /api/evolution/trigger/promotions
-POST /api/evolution/trigger/growth-ofertas
-POST /api/evolution/trigger/profitlabs-promocoes
-POST /api/evolution/trigger/soldiers-relampago
+POST /api/whatsapp/trigger/ranking?top=10
+POST /api/whatsapp/trigger/promotions
+POST /api/whatsapp/trigger/growth/ofertas
+POST /api/whatsapp/trigger/profitlabs/promocoes
+POST /api/whatsapp/trigger/soldiers/oferta-relampago
 ```
 
 ---
@@ -160,10 +160,10 @@ GET http://localhost:8080/api/rankings/whey/top-cost-benefit?top=10
 | `API_KEY` | Chave para proteger os endpoints | *(vazio = sem proteção)* |
 | `TELEGRAM_BOT_TOKEN` | Token do bot do Telegram | *(vazio = sem envio)* |
 | `TELEGRAM_CHAT_ID` | ID do grupo ou canal | — |
-| `EVOLUTION_API_URL` | URL base da Evolution API | `http://localhost:8081` |
-| `EVOLUTION_API_KEY` | API key da Evolution | *(vazio = sem envio)* |
-| `EVOLUTION_INSTANCE` | Nome da instância WhatsApp | `whey-bot` |
-| `EVOLUTION_NUMBER` | Número/grupo de destino | — |
+| `ZAPI_INSTANCE_ID` | ID da instância Z-API | *(vazio = sem envio)* |
+| `ZAPI_INSTANCE_TOKEN` | Token da instância Z-API | — |
+| `ZAPI_CLIENT_TOKEN` | Token de segurança da conta Z-API | — |
+| `ZAPI_PHONE` | JID destino (canal `@newsletter`, grupo `@g.us` ou número) | — |
 | `GROQ_API_KEY` | API key do Groq (IA) | *(vazio = usa templates fixos)* |
 | `PORT` | Porta HTTP | `8080` |
 
@@ -184,7 +184,7 @@ GET http://localhost:8080/api/rankings/whey/top-cost-benefit?top=10
 src/main/java/com/devlil0/whey_promotion_bot/
 ├── client/      # Clientes HTTP por loja (8 lojas)
 ├── config/      # WebClient, interceptor de API Key, seeder nutricional
-├── controller/  # Endpoints REST, triggers Telegram e Evolution
+├── controller/  # Endpoints REST, triggers Telegram e Z-API
 ├── dto/         # ProductOfferResponse, RankingItemResponse, PromotionAlert, etc.
 ├── entity/      # JPA: ProductOffer, NutritionInfo, ProductScore, PriceHistory
 ├── repository/  # Spring Data JPA repositories

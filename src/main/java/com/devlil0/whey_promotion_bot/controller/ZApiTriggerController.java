@@ -4,7 +4,7 @@ import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
-import com.devlil0.whey_promotion_bot.service.EvolutionNotificationService;
+import com.devlil0.whey_promotion_bot.service.ZApiNotificationService;
 import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
@@ -20,20 +20,20 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/whatsapp")
-public class EvolutionTriggerController {
+public class ZApiTriggerController {
 
-    private final EvolutionNotificationService evolutionService;
+    private final ZApiNotificationService zapiService;
     private final RankingService rankingService;
     private final PromotionService promotionService;
     private final StoreCollectorService collectorService;
     private final OfferPersistenceService persistenceService;
 
-    public EvolutionTriggerController(EvolutionNotificationService evolutionService,
-                                      RankingService rankingService,
-                                      PromotionService promotionService,
-                                      StoreCollectorService collectorService,
-                                      OfferPersistenceService persistenceService) {
-        this.evolutionService = evolutionService;
+    public ZApiTriggerController(ZApiNotificationService zapiService,
+                                 RankingService rankingService,
+                                 PromotionService promotionService,
+                                 StoreCollectorService collectorService,
+                                 OfferPersistenceService persistenceService) {
+        this.zapiService = zapiService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.collectorService = collectorService;
@@ -51,21 +51,21 @@ public class EvolutionTriggerController {
     @PostMapping("/trigger/ranking")
     public Map<String, Object> triggerRanking(@RequestParam(defaultValue = "10") int top) {
         List<RankingItemResponse> ranking = rankingService.getRanking(top, null);
-        evolutionService.sendRanking(ranking);
+        zapiService.sendRanking(ranking);
         return Map.of("sent", true, "itemCount", ranking.size());
     }
 
     @PostMapping("/trigger/promotions")
     public Map<String, Object> triggerPromotions() {
         List<PromotionAlert> promotions = promotionService.detectPromotions(LocalDateTime.now());
-        evolutionService.sendPromotions(promotions);
+        zapiService.sendPromotions(promotions);
         return Map.of("sent", !promotions.isEmpty(), "promotionCount", promotions.size());
     }
 
     @PostMapping("/trigger/growth/ofertas")
     public Map<String, Object> triggerGrowthOfertas() {
         List<OfertasFaixaResponse> ofertas = collectorService.collectGrowthOfertasByBand();
-        evolutionService.sendOfertas(ofertas, "Growth Supplements");
+        zapiService.sendOfertas(ofertas, "Growth Supplements");
         int total = ofertas.stream().mapToInt(OfertasFaixaResponse::quantidade).sum();
         return Map.of("sent", total > 0, "offerCount", total);
     }
@@ -73,7 +73,7 @@ public class EvolutionTriggerController {
     @PostMapping("/trigger/profitlabs/promocoes")
     public Map<String, Object> triggerProfitLabsPromocoes() {
         List<OfertasFaixaResponse> promocoes = collectorService.collectProfitLabsPromocoesByBand();
-        evolutionService.sendOfertas(promocoes, "ProFit Labs");
+        zapiService.sendOfertas(promocoes, "ProFit Labs");
         int total = promocoes.stream().mapToInt(OfertasFaixaResponse::quantidade).sum();
         return Map.of("sent", total > 0, "offerCount", total);
     }
@@ -81,7 +81,7 @@ public class EvolutionTriggerController {
     @PostMapping("/trigger/soldiers/oferta-relampago")
     public Map<String, Object> triggerSoldiersOfertaRelampago() {
         List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
-        evolutionService.sendOfertaRelampago(ofertas);
+        zapiService.sendOfertaRelampago(ofertas);
         return Map.of("sent", !ofertas.isEmpty(), "offerCount", ofertas.size());
     }
 }

@@ -18,15 +18,14 @@ import java.text.DecimalFormatSymbols;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 @Service
-public class EvolutionNotificationService {
+public class ZApiNotificationService {
 
-    private static final Logger log = LoggerFactory.getLogger(EvolutionNotificationService.class);
+    private static final Logger log = LoggerFactory.getLogger(ZApiNotificationService.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM HH:mm");
     private static final ZoneId SAO_PAULO = ZoneId.of("America/Sao_Paulo");
     private static final Locale BR_LOCALE = new Locale("pt", "BR");
@@ -36,26 +35,25 @@ public class EvolutionNotificationService {
             new DecimalFormat("#,##0.0", DecimalFormatSymbols.getInstance(BR_LOCALE));
 
     private final WebClient webClient;
-    private final String instance;
-    private final String number;
+    private final String phone;
     private final boolean enabled;
     private final GroqMessageService groq;
 
-    public EvolutionNotificationService(
+    public ZApiNotificationService(
             WebClient.Builder builder,
-            @Value("${evolution.api.base-url:}") String baseUrl,
-            @Value("${evolution.api.api-key:}") String apiKey,
-            @Value("${evolution.api.instance:}") String instance,
-            @Value("${evolution.api.number:}") String number,
+            @Value("${zapi.instance-id:}") String instanceId,
+            @Value("${zapi.instance-token:}") String instanceToken,
+            @Value("${zapi.client-token:}") String clientToken,
+            @Value("${zapi.phone:}") String phone,
             GroqMessageService groq
     ) {
-        this.instance = instance;
-        this.number = number;
-        this.enabled = !baseUrl.isBlank() && !apiKey.isBlank() && !instance.isBlank() && !number.isBlank();
+        this.phone = phone;
+        this.enabled = !instanceId.isBlank() && !instanceToken.isBlank()
+                && !clientToken.isBlank() && !phone.isBlank();
         this.groq = groq;
         this.webClient = builder
-                .baseUrl(baseUrl.isBlank() ? "http://localhost:8081" : baseUrl)
-                .defaultHeader("apikey", apiKey)
+                .baseUrl("https://api.z-api.io/instances/" + instanceId + "/token/" + instanceToken)
+                .defaultHeader("Client-Token", clientToken)
                 .build();
     }
 
@@ -241,48 +239,34 @@ public class EvolutionNotificationService {
         return value.stripTrailingZeros().toPlainString().replace(".", ",");
     }
 
-    // ── Evolution API HTTP ────────────────────────────────────────────────────
+    // ── Z-API HTTP ────────────────────────────────────────────────────────────
 
     private void sendText(String text) {
         try {
             webClient.post()
-                    .uri("/message/sendText/" + instance)
+                    .uri("/send-text")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(Map.of("number", number, "text", text))
+                    .bodyValue(Map.of("phone", phone, "message", text))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
         } catch (Exception e) {
-            log.error("Falha ao enviar texto Evolution API: {}", e.getMessage());
+            log.error("Falha ao enviar texto Z-API: {}", e.getMessage());
         }
     }
 
     private void sendMedia(String mediaUrl, String caption) {
         try {
-            Map<String, Object> body = new HashMap<>();
-            body.put("number", number);
-            body.put("mediatype", "image");
-            body.put("mimetype", mimeTypeFromUrl(mediaUrl));
-            body.put("caption", caption);
-            body.put("media", mediaUrl);
             webClient.post()
-                    .uri("/message/sendMedia/" + instance)
+                    .uri("/send-image")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body)
+                    .bodyValue(Map.of("phone", phone, "image", mediaUrl, "caption", caption))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
         } catch (Exception e) {
-            log.error("Falha ao enviar mídia Evolution API (url={}): {}", mediaUrl, e.getMessage());
+            log.error("Falha ao enviar mídia Z-API (url={}): {}", mediaUrl, e.getMessage());
             sendText(caption);
         }
-    }
-
-    private String mimeTypeFromUrl(String url) {
-        String lower = url.toLowerCase();
-        if (lower.contains(".png")) return "image/png";
-        if (lower.contains(".webp")) return "image/webp";
-        if (lower.contains(".gif")) return "image/gif";
-        return "image/jpeg";
     }
 }

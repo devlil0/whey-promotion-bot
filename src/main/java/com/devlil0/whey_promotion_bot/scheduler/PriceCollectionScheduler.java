@@ -8,8 +8,8 @@ import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
 import com.devlil0.whey_promotion_bot.service.StoreCollectorService;
-import com.devlil0.whey_promotion_bot.service.EvolutionNotificationService;
 import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
+import com.devlil0.whey_promotion_bot.service.ZApiNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,20 +28,20 @@ public class PriceCollectionScheduler {
     private final RankingService rankingService;
     private final PromotionService promotionService;
     private final TelegramNotificationService telegramService;
-    private final EvolutionNotificationService evolutionService;
+    private final ZApiNotificationService zapiService;
 
     public PriceCollectionScheduler(StoreCollectorService collectorService,
                                      OfferPersistenceService persistenceService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
                                      TelegramNotificationService telegramService,
-                                     EvolutionNotificationService evolutionService) {
+                                     ZApiNotificationService zapiService) {
         this.collectorService = collectorService;
         this.persistenceService = persistenceService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.telegramService = telegramService;
-        this.evolutionService = evolutionService;
+        this.zapiService = zapiService;
     }
 
     @Scheduled(cron = "0 0 8,20 * * *", zone = "America/Sao_Paulo")
@@ -60,7 +60,7 @@ public class PriceCollectionScheduler {
         } else {
             log.info("{} promoções detectadas — enviando notificações.", promotions.size());
             telegramService.sendPromotions(promotions);
-            evolutionService.sendPromotions(promotions);
+            zapiService.sendPromotions(promotions);
         }
     }
 
@@ -69,7 +69,7 @@ public class PriceCollectionScheduler {
         log.info("Enviando ranking diário — {}", LocalDateTime.now());
         List<RankingItemResponse> ranking = rankingService.getRanking(10, null);
         telegramService.sendRanking(ranking);
-        evolutionService.sendRanking(ranking);
+        zapiService.sendRanking(ranking);
     }
 
     @Scheduled(cron = "0 0 12 * * *", zone = "America/Sao_Paulo")
@@ -77,7 +77,7 @@ public class PriceCollectionScheduler {
         log.info("Enviando ofertas Growth Supplements — {}", LocalDateTime.now());
         List<OfertasFaixaResponse> ofertas = collectorService.collectGrowthOfertasByBand();
         telegramService.sendOfertas(ofertas, "Growth Supplements");
-        evolutionService.sendOfertas(ofertas, "Growth Supplements");
+        zapiService.sendOfertas(ofertas, "Growth Supplements");
     }
 
     @Scheduled(cron = "0 0 16 * * *", zone = "America/Sao_Paulo")
@@ -85,7 +85,7 @@ public class PriceCollectionScheduler {
         log.info("Enviando promoções ProFit Labs — {}", LocalDateTime.now());
         List<OfertasFaixaResponse> promocoes = collectorService.collectProfitLabsPromocoesByBand();
         telegramService.sendOfertas(promocoes, "ProFit Labs");
-        evolutionService.sendOfertas(promocoes, "ProFit Labs");
+        zapiService.sendOfertas(promocoes, "ProFit Labs");
     }
 
     @Scheduled(cron = "0 10 20 * * *", zone = "America/Sao_Paulo")
@@ -93,6 +93,6 @@ public class PriceCollectionScheduler {
         log.info("Enviando oferta relâmpago Soldiers Nutrition — {}", LocalDateTime.now());
         List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
         telegramService.sendOfertaRelampago(ofertas);
-        evolutionService.sendOfertaRelampago(ofertas);
+        zapiService.sendOfertaRelampago(ofertas);
     }
 }
