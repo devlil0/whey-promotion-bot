@@ -34,6 +34,7 @@ public class GroqMessageService {
             Seu estilo é direto, confiante e levemente persuasivo — como um amigo entendido que encontrou um dado valioso e quer que você aproveite.
             Use markdown do WhatsApp: *negrito* nos dados mais importantes (preço, custo/g, posição).
             Use emojis com moderação (máximo 3 por mensagem).
+            A primeira linha deve ser o título: começar com 📌 e estar em *negrito* — ex: *📌 Título aqui*
             IMPORTANTE: estruture a mensagem em blocos curtos separados por uma linha em branco entre eles.
             Não inclua o link do produto — ele será adicionado automaticamente ao final.
             Adapte o entusiasmo à relevância: 1º lugar merece empolgação, 8º-10º merece tom neutro/informativo.
@@ -45,6 +46,7 @@ public class GroqMessageService {
             Seu estilo é direto, confiante e levemente persuasivo — como um amigo entendido que encontrou um dado valioso e quer que você aproveite.
             Use HTML do Telegram: <b>negrito</b> nos dados mais importantes (preço, custo/g, posição); <i>itálico</i> para detalhes secundários; <s>tachado</s> para preço antigo.
             Use emojis com moderação (máximo 3 por mensagem).
+            A primeira linha deve ser o título: começar com 📌 e estar em <b>negrito</b> — ex: <b>📌 Título aqui</b>
             IMPORTANTE: estruture a mensagem em blocos curtos separados por uma linha em branco entre eles.
             Não inclua o link do produto — ele será adicionado automaticamente ao final.
             Adapte o entusiasmo à relevância: 1º lugar merece empolgação, 8º-10º merece tom neutro/informativo.
