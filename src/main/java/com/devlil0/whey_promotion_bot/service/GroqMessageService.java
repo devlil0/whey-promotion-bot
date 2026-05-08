@@ -30,20 +30,24 @@ public class GroqMessageService {
             new DecimalFormat("#,##0.0", DecimalFormatSymbols.getInstance(BR_LOCALE));
 
     private static final String SYSTEM_PROMPT_WHATSAPP = """
-            Você é copywriter especialista em suplementos esportivos para grupos de WhatsApp.
-            Gere mensagens de vendas persuasivas, diretas e com boa energia. Sempre em português do Brasil.
+            Você é analista de ofertas de suplementos esportivos para um grupo de WhatsApp de curadoria.
+            Seu estilo é direto, confiante e informativo — como um amigo entendido que encontrou um dado interessante.
             Use markdown do WhatsApp: *negrito*, _itálico_, ~tachado~.
-            Use emojis estrategicamente. Máximo 12 linhas.
+            Use emojis com moderação (máximo 3 por mensagem). Máximo 6 linhas.
+            IMPORTANTE: quebre a mensagem em linhas curtas — cada frase ou bloco de informação em uma linha separada.
             Não inclua o link do produto — ele será adicionado automaticamente ao final.
+            Adapte o entusiasmo à relevância: 1º lugar merece empolgação, 8º-10º merece tom neutro/informativo.
             Responda SOMENTE com a mensagem final, sem explicações adicionais.
             """;
 
     private static final String SYSTEM_PROMPT_HTML = """
-            Você é copywriter especialista em suplementos esportivos para grupos do Telegram.
-            Gere mensagens de vendas persuasivas, diretas e com boa energia. Sempre em português do Brasil.
+            Você é analista de ofertas de suplementos esportivos para um canal do Telegram de curadoria.
+            Seu estilo é direto, confiante e informativo — como um amigo entendido que encontrou um dado interessante.
             Use HTML do Telegram: <b>negrito</b>, <i>itálico</i>, <s>tachado</s>.
-            Use emojis estrategicamente. Máximo 12 linhas.
+            Use emojis com moderação (máximo 3 por mensagem). Máximo 6 linhas.
+            IMPORTANTE: quebre a mensagem em linhas curtas — cada frase ou bloco de informação em uma linha separada.
             Não inclua o link do produto — ele será adicionado automaticamente ao final.
+            Adapte o entusiasmo à relevância: 1º lugar merece empolgação, 8º-10º merece tom neutro/informativo.
             Responda SOMENTE com a mensagem final, sem explicações adicionais.
             """;
 
@@ -127,13 +131,20 @@ public class GroqMessageService {
 
     private String buildRankingPrompt(RankingItemResponse item) {
         BigDecimal price = item.cashPrice() != null ? item.cashPrice() : item.price();
-        String pixNote = item.cashPrice() != null ? " (no pix)" : "";
-        return "Gere uma mensagem para ranking de melhor custo-benefício de whey protein.\n" +
-                "Posição: " + positionLabel(item.position()) + "\n" +
+        String pixNote = item.cashPrice() != null ? " no Pix" : "";
+        int pos = item.position();
+        String tone = pos == 1 ? "Destaque com entusiasmo — é o melhor custo-benefício do ranking."
+                : pos <= 3 ? "Tom positivo e direto — está no pódio."
+                : pos <= 7 ? "Tom neutro e informativo — boa opção no ranking."
+                : "Tom breve e factual — apenas registre a posição sem exagerar.";
+        return "Escreva uma notificação de ranking de whey protein para Telegram.\n" +
+                "Posição: " + pos + "º lugar (de 10)\n" +
+                "Tom: " + tone + "\n" +
                 "Produto: " + item.name() + "\n" +
+                "Tipo de whey: " + wheyType(item.name()) + "\n" +
                 "Loja: " + storeLabel(item.store()) + "\n" +
                 (price != null ? "Preço: " + fmt(price) + pixNote + "\n" : "") +
-                "Custo de proteína: " + centavos(item.pricePerProteinGram()) + " centavos/g\n" +
+                "Custo por grama de proteína: " + centavos(item.pricePerProteinGram()) + " centavos/g\n" +
                 (item.weightGrams() != null ? "Gramatura: " + item.weightGrams() + "g\n" : "") +
                 (item.proteinPerServingGrams() != null
                         ? "Proteína por dose: " + item.proteinPerServingGrams().stripTrailingZeros().toPlainString() + "g\n"
@@ -144,6 +155,7 @@ public class GroqMessageService {
         BigDecimal disc = p.discountPercent().multiply(BigDecimal.valueOf(100));
         return "Gere uma mensagem de alerta: preço do produto caiu abaixo da média histórica.\n" +
                 "Produto: " + p.name() + "\n" +
+                "Tipo de whey: " + wheyType(p.name()) + "\n" +
                 "Loja: " + storeLabel(p.store()) + "\n" +
                 "Preço anterior (média 7 dias): " + fmt(p.averagePrice()) + "\n" +
                 "Preço atual: " + fmt(p.currentPrice()) + "\n" +
@@ -164,9 +176,26 @@ public class GroqMessageService {
                 : (price != null ? fmt(price) + (isPix ? " (no pix)" : "") : "não informado");
         return "Gere uma mensagem de oferta para suplemento. Tipo: " + badge + "\n" +
                 "Produto: " + p.name() + "\n" +
+                "Tipo de whey: " + wheyType(p.name()) + "\n" +
                 "Loja: " + storeLabel(p.store()) + "\n" +
                 "Preço: " + priceStr + "\n" +
                 (p.weightGrams() != null ? "Gramatura: " + p.weightGrams() + "g\n" : "");
+    }
+
+    private String wheyType(String name) {
+        if (name == null) return "Whey Protein";
+        String n = name.toLowerCase();
+        boolean hasHydro    = n.contains("hidrolisado") || n.contains("hydrolyze") || n.contains("hydro") || n.contains("wph");
+        boolean hasIsolate  = n.contains("isolado") || n.contains("isolate") || n.contains("wpi");
+        boolean hasConc     = n.contains("concentrado") || n.contains("concentrate") || n.contains("wpc");
+        boolean hasBlend    = n.contains("blend") || n.contains("matrix") || n.contains("complex")
+                           || n.contains("mix") || n.contains("3w") || n.contains("tri");
+        if (hasBlend || (hasHydro && hasIsolate) || (hasHydro && hasConc) || (hasIsolate && hasConc))
+            return "Blend (mix de concentrado, isolado e/ou hidrolisado)";
+        if (hasHydro)   return "Hidrolisado — absorção mais rápida, ideal pós-treino";
+        if (hasIsolate) return "Isolado — baixo carboidrato e gordura, alto teor proteico";
+        if (hasConc)    return "Concentrado — proteína completa com custo acessível";
+        return "Concentrado — proteína completa com custo acessível";
     }
 
     private String positionLabel(int pos) {
