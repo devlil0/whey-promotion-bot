@@ -23,9 +23,9 @@ import java.util.Locale;
 import java.util.Map;
 
 @Service
-public class ZApiNotificationService {
+public class WhatsAppNotificationService {
 
-    private static final Logger log = LoggerFactory.getLogger(ZApiNotificationService.class);
+    private static final Logger log = LoggerFactory.getLogger(WhatsAppNotificationService.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM HH:mm");
     private static final ZoneId SAO_PAULO = ZoneId.of("America/Sao_Paulo");
     private static final Locale BR_LOCALE = new Locale("pt", "BR");
@@ -39,21 +39,17 @@ public class ZApiNotificationService {
     private final boolean enabled;
     private final GroqMessageService groq;
 
-    public ZApiNotificationService(
+    public WhatsAppNotificationService(
             WebClient.Builder builder,
-            @Value("${zapi.instance-id:}") String instanceId,
-            @Value("${zapi.instance-token:}") String instanceToken,
-            @Value("${zapi.client-token:}") String clientToken,
-            @Value("${zapi.phone:}") String phone,
+            @Value("${whatsapp.base-url:}") String baseUrl,
+            @Value("${whatsapp.phone:}") String phone,
             GroqMessageService groq
     ) {
         this.phone = phone;
-        this.enabled = !instanceId.isBlank() && !instanceToken.isBlank()
-                && !clientToken.isBlank() && !phone.isBlank();
+        this.enabled = !baseUrl.isBlank() && !phone.isBlank();
         this.groq = groq;
         this.webClient = builder
-                .baseUrl("https://api.z-api.io/instances/" + instanceId + "/token/" + instanceToken)
-                .defaultHeader("Client-Token", clientToken)
+                .baseUrl(baseUrl.isBlank() ? "http://localhost:3000" : baseUrl)
                 .build();
     }
 
@@ -239,7 +235,7 @@ public class ZApiNotificationService {
         return value.stripTrailingZeros().toPlainString().replace(".", ",");
     }
 
-    // ── Z-API HTTP ────────────────────────────────────────────────────────────
+    // ── Sidecar Baileys HTTP ──────────────────────────────────────────────────
 
     private void sendText(String text) {
         try {
@@ -251,7 +247,7 @@ public class ZApiNotificationService {
                     .bodyToMono(JsonNode.class)
                     .block();
         } catch (Exception e) {
-            log.error("Falha ao enviar texto Z-API: {}", e.getMessage());
+            log.error("Falha ao enviar texto WhatsApp: {}", e.getMessage());
         }
     }
 
@@ -265,7 +261,7 @@ public class ZApiNotificationService {
                     .bodyToMono(JsonNode.class)
                     .block();
         } catch (Exception e) {
-            log.error("Falha ao enviar mídia Z-API (url={}): {}", mediaUrl, e.getMessage());
+            log.error("Falha ao enviar mídia WhatsApp (url={}): {}", mediaUrl, e.getMessage());
             sendText(caption);
         }
     }

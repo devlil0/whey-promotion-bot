@@ -28,10 +28,27 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/whey_db
       - SPRING_DATASOURCE_USERNAME=whey_user
       - SPRING_DATASOURCE_PASSWORD=whey_pass
+      - WHATSAPP_BASE_URL=http://baileys_sidecar:3000
     depends_on:
       postgres:
         condition: service_healthy
+      baileys_sidecar:
+        condition: service_started
+    restart: unless-stopped
+
+  baileys_sidecar:
+    build: ./baileys-sidecar
+    container_name: baileys_sidecar
+    ports:
+      - "3000:3000"
+    environment:
+      - TZ=America/Sao_Paulo
+      - PORT=3000
+      - AUTH_DIR=/app/auth
+    volumes:
+      - baileys_auth:/app/auth
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  baileys_auth:
