@@ -327,9 +327,14 @@ public class TelegramNotificationService {
         try {
             byte[] imageBytes = imageProcessingService.enhance(photoUrl);
             if (imageBytes != null) {
+                boolean isPng = imageBytes.length >= 4
+                        && imageBytes[0] == (byte) 0x89 && imageBytes[1] == 'P'
+                        && imageBytes[2] == 'N' && imageBytes[3] == 'G';
+                String filename = isPng ? "photo.png" : "photo.jpg";
+                MediaType mediaType = isPng ? MediaType.IMAGE_PNG : MediaType.IMAGE_JPEG;
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
                 builder.part("chat_id", chatId);
-                builder.part("photo", imageBytes).filename("photo.jpg").contentType(MediaType.IMAGE_JPEG);
+                builder.part("photo", imageBytes).filename(filename).contentType(mediaType);
                 builder.part("caption", caption);
                 builder.part("parse_mode", "HTML");
                 webClient.post()

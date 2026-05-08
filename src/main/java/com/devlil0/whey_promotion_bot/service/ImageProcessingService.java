@@ -11,6 +11,7 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,31 +25,43 @@ public class ImageProcessingService {
     private static final Logger log = LoggerFactory.getLogger(ImageProcessingService.class);
 
     /**
-     * Downloads the image at the given URL and re-encodes it as JPEG at 97% quality,
-     * preserving the original dimensions. Transparency is flattened to white.
+     * Downloads the image and returns bytes ready to upload to Telegram via sendPhoto.
+     * - JPEG: returned as-is (no re-encoding, no quality loss)
+     * - PNG:  returned as-is (Telegram supports PNG natively)
+     * - WebP: converted to JPEG 97% (Telegram sendPhoto doesn't accept WebP)
      *
-     * @return processed bytes, or {@code null} if anything goes wrong (caller should fall back to URL)
+     * @return image bytes, or {@code null} if anything goes wrong (caller falls back to URL)
      */
     public byte[] enhance(String imageUrl) {
         try {
-            BufferedImage original = downloadImage(imageUrl);
-            if (original == null) return null;
-            return encodeToJpeg(flattenAlpha(original));
+            HttpURLConnection conn = (HttpURLConnection) new URL(imageUrl).openConnection();
+            conn.setConnectTimeout(5_000);
+            conn.setReadTimeout(10_000);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            String contentType = conn.getContentType();
+            byte[] raw;
+            try (InputStream in = conn.getInputStream()) {
+                raw = in.readAllBytes();
+            }
+            if (raw.length == 0) return null;
+            boolean isWebP = isWebP(raw, contentType);
+            if (!isWebP) return raw;
+            BufferedImage img = ImageIO.read(new ByteArrayInputStream(raw));
+            if (img == null) return null;
+            return encodeToJpeg(flattenAlpha(img));
         } catch (Exception e) {
             log.warn("Falha ao processar imagem {}: {}", imageUrl, e.getMessage());
             return null;
         }
     }
 
-    private BufferedImage downloadImage(String imageUrl) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(imageUrl).openConnection();
-        conn.setConnectTimeout(5_000);
-        conn.setReadTimeout(10_000);
-        conn.setInstanceFollowRedirects(true);
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-        try (InputStream in = conn.getInputStream()) {
-            return ImageIO.read(in);
-        }
+    private boolean isWebP(byte[] raw, String contentType) {
+        if (contentType != null && contentType.contains("webp")) return true;
+        // WebP magic bytes: RIFF????WEBP
+        return raw.length >= 12
+                && raw[0] == 'R' && raw[1] == 'I' && raw[2] == 'F' && raw[3] == 'F'
+                && raw[8] == 'W' && raw[9] == 'E' && raw[10] == 'B' && raw[11] == 'P';
     }
 
     private BufferedImage flattenAlpha(BufferedImage img) {
