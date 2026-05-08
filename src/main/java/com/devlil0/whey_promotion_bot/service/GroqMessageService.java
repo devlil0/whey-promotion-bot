@@ -135,12 +135,27 @@ public class GroqMessageService {
                     .block();
 
             if (response != null && response.has("choices")) {
-                return response.get("choices").get(0).get("message").get("content").asText().trim();
+                String text = response.get("choices").get(0).get("message").get("content").asText().trim();
+                return ensurePinEmoji(text, format);
             }
         } catch (Exception e) {
             log.warn("Groq indisponível, usando template: {}", e.getMessage());
         }
         return null;
+    }
+
+    private String ensurePinEmoji(String text, Format format) {
+        if (text == null || text.startsWith("📌")) return text;
+        String firstLine = text.lines().findFirst().orElse("");
+        if (format == Format.HTML) {
+            // strip leading <b> to re-wrap with 📌 inside
+            String stripped = firstLine.replaceFirst("^<b>", "").replaceFirst("</b>$", "");
+            return text.replaceFirst(java.util.regex.Pattern.quote(firstLine), "<b>📌 " + stripped + "</b>");
+        } else {
+            // strip leading * to re-wrap with 📌 inside
+            String stripped = firstLine.replaceAll("^\\*", "").replaceAll("\\*$", "");
+            return text.replaceFirst(java.util.regex.Pattern.quote(firstLine), "*📌 " + stripped + "*");
+        }
     }
 
     private String buildRankingPrompt(RankingItemResponse item) {
