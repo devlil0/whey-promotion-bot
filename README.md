@@ -14,7 +14,7 @@ Bot que monitora preços de whey protein em 8 lojas brasileiras, calcula o melho
 - **Envia o ranking diário** às 08h05 com foto e link de cada produto
 - **Envia ofertas por faixa de preço** de Growth Supplements (12h) e ProFit Labs (16h)
 - **Envia oferta relâmpago** da Soldiers Nutrition (20h10)
-- **Mensagens geradas por IA**: cada produto passa pelo Groq (Llama 3.3 70B) antes de ser enviado
+- **Mensagens geradas por IA**: cada produto passa pelo Groq (Llama 3.3 70B) antes de ser enviado — com tom calibrado pela posição no ranking e tipo de whey detectado automaticamente
 - **API REST** protegida por API Key para consultar ranking e disparar envios manualmente
 
 ---
@@ -30,7 +30,7 @@ Bot que monitora preços de whey protein em 8 lojas brasileiras, calcula o melho
 | Banco de dados | PostgreSQL |
 | ORM | Spring Data JPA / Hibernate |
 | Geração de mensagens | Groq API (Llama 3.3 70B) |
-| Notificações | Telegram Bot API + Z-API (WhatsApp) |
+| Notificações | Telegram Bot API + Baileys sidecar (WhatsApp) |
 | Containerização | Docker + Docker Compose |
 | Deploy | Railway |
 
@@ -63,7 +63,7 @@ Scheduler
     │                         └─ PromotionService (compara vs média 7 dias)
     │                               └─ GroqMessageService (gera caption via IA)
     │                                     ├─ TelegramNotificationService
-    │                                     └─ ZApiNotificationService (WhatsApp)
+    │                                     └─ WhatsAppNotificationService → Baileys sidecar
     │
     ├─ 08h05 ──► Ranking diário (Telegram + WhatsApp)
     ├─ 12h00 ──► Ofertas Growth por faixa de preço (Telegram + WhatsApp)
@@ -118,7 +118,7 @@ POST /api/telegram/trigger/profitlabs-promocoes
 POST /api/telegram/trigger/soldiers-relampago
 ```
 
-### Disparo manual — WhatsApp (Z-API)
+### Disparo manual — WhatsApp
 
 ```
 POST /api/whatsapp/trigger/ranking?top=10
@@ -160,10 +160,8 @@ GET http://localhost:8080/api/rankings/whey/top-cost-benefit?top=10
 | `API_KEY` | Chave para proteger os endpoints | *(vazio = sem proteção)* |
 | `TELEGRAM_BOT_TOKEN` | Token do bot do Telegram | *(vazio = sem envio)* |
 | `TELEGRAM_CHAT_ID` | ID do grupo ou canal | — |
-| `ZAPI_INSTANCE_ID` | ID da instância Z-API | *(vazio = sem envio)* |
-| `ZAPI_INSTANCE_TOKEN` | Token da instância Z-API | — |
-| `ZAPI_CLIENT_TOKEN` | Token de segurança da conta Z-API | — |
-| `ZAPI_PHONE` | JID destino (canal `@newsletter`, grupo `@g.us` ou número) | — |
+| `WHATSAPP_BASE_URL` | URL base do Baileys sidecar | *(vazio = sem envio)* |
+| `WHATSAPP_PHONE` | JID destino (canal `@newsletter`, grupo `@g.us` ou número) | — |
 | `GROQ_API_KEY` | API key do Groq (IA) | *(vazio = usa templates fixos)* |
 | `PORT` | Porta HTTP | `8080` |
 
@@ -171,10 +169,25 @@ GET http://localhost:8080/api/rankings/whey/top-cost-benefit?top=10
 
 ## Deploy no Railway
 
+O projeto usa dois serviços no Railway: o bot Java e o sidecar WhatsApp.
+
+### Bot Java
+
 1. **New Project → Deploy from GitHub repo**
 2. Adicione um plugin **PostgreSQL**
 3. Configure as variáveis de ambiente no painel
 4. O Railway faz build e deploy automaticamente a cada push na `main`
+
+### Baileys sidecar (WhatsApp)
+
+O sidecar é um serviço Node.js que mantém a conexão com o WhatsApp via Baileys.
+
+1. **New Service → Deploy from GitHub repo** (pasta `baileys-sidecar/`)
+2. Adicione um **Volume** montado em `/app/auth` para persistir a sessão entre deploys
+3. Após o deploy, acesse `GET /qr` na URL pública do serviço e escaneie o QR code pelo WhatsApp
+4. Configure `WHATSAPP_BASE_URL` no bot Java apontando para a URL interna do sidecar
+
+> A sessão é mantida no volume e sobrevive a redeploys. O QR code só precisa ser escaneado novamente se a sessão expirar.
 
 ---
 
@@ -184,12 +197,17 @@ GET http://localhost:8080/api/rankings/whey/top-cost-benefit?top=10
 src/main/java/com/devlil0/whey_promotion_bot/
 ├── client/      # Clientes HTTP por loja (8 lojas)
 ├── config/      # WebClient, interceptor de API Key, seeder nutricional
-├── controller/  # Endpoints REST, triggers Telegram e Z-API
+├── controller/  # Endpoints REST, triggers Telegram e WhatsApp
 ├── dto/         # ProductOfferResponse, RankingItemResponse, PromotionAlert, etc.
 ├── entity/      # JPA: ProductOffer, NutritionInfo, ProductScore, PriceHistory
 ├── repository/  # Spring Data JPA repositories
 ├── scheduler/   # Coleta 2x/dia + agendamentos de envio
 └── service/     # Ranking, promoções, coleta, notificações, IA (Groq), matching nutricional
+
+baileys-sidecar/  # Serviço Node.js para WhatsApp (Baileys)
+├── index.js      # Express + Baileys: /send-text, /send-image, /health, /qr
+├── Dockerfile
+└── railway.toml
 ```
 
 ---
