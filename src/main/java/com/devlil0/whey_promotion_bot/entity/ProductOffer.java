@@ -5,7 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_offer")
+@Table(name = "product_offer",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_product_offer_store_external_id",
+                columnNames = {"store", "external_id"}))
 public class ProductOffer {
 
     @Id

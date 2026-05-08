@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: whey_db
       POSTGRES_USER: whey_user
       POSTGRES_PASSWORD: whey_pass
+      TZ: America/Sao_Paulo
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,7 +34,7 @@ services:
       postgres:
         condition: service_healthy
       baileys_sidecar:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   baileys_sidecar:
@@ -47,6 +48,12 @@ services:
       - AUTH_DIR=/app/auth
     volumes:
       - baileys_auth:/app/auth
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
     restart: unless-stopped
 
 volumes:

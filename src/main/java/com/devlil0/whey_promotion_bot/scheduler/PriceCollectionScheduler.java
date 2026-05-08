@@ -4,6 +4,7 @@ import com.devlil0.whey_promotion_bot.dto.OfertasFaixaResponse;
 import com.devlil0.whey_promotion_bot.dto.ProductOfferResponse;
 import com.devlil0.whey_promotion_bot.dto.PromotionAlert;
 import com.devlil0.whey_promotion_bot.dto.RankingItemResponse;
+import com.devlil0.whey_promotion_bot.repository.PriceHistoryRepository;
 import com.devlil0.whey_promotion_bot.service.OfferPersistenceService;
 import com.devlil0.whey_promotion_bot.service.PromotionService;
 import com.devlil0.whey_promotion_bot.service.RankingService;
@@ -12,6 +13,7 @@ import com.devlil0.whey_promotion_bot.service.TelegramNotificationService;
 import com.devlil0.whey_promotion_bot.service.WhatsAppNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -29,19 +31,25 @@ public class PriceCollectionScheduler {
     private final PromotionService promotionService;
     private final TelegramNotificationService telegramService;
     private final WhatsAppNotificationService whatsappService;
+    private final PriceHistoryRepository priceHistoryRepository;
+
+    @Value("${promotion.history-retention-days:30}")
+    private int historyRetentionDays;
 
     public PriceCollectionScheduler(StoreCollectorService collectorService,
                                      OfferPersistenceService persistenceService,
                                      RankingService rankingService,
                                      PromotionService promotionService,
                                      TelegramNotificationService telegramService,
-                                     WhatsAppNotificationService whatsappService) {
+                                     WhatsAppNotificationService whatsappService,
+                                     PriceHistoryRepository priceHistoryRepository) {
         this.collectorService = collectorService;
         this.persistenceService = persistenceService;
         this.rankingService = rankingService;
         this.promotionService = promotionService;
         this.telegramService = telegramService;
         this.whatsappService = whatsappService;
+        this.priceHistoryRepository = priceHistoryRepository;
     }
 
     @Scheduled(cron = "0 0 8,20 * * *", zone = "America/Sao_Paulo")
@@ -94,5 +102,12 @@ public class PriceCollectionScheduler {
         List<ProductOfferResponse> ofertas = collectorService.collectSoldiersOfertaRelampago();
         telegramService.sendOfertaRelampago(ofertas);
         whatsappService.sendOfertaRelampago(ofertas);
+    }
+
+    @Scheduled(cron = "0 0 3 * * *", zone = "America/Sao_Paulo")
+    public void prunePriceHistory() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(historyRetentionDays);
+        int deleted = priceHistoryRepository.deleteOlderThan(cutoff);
+        if (deleted > 0) log.info("Poda de histórico: {} registros removidos (anteriores a {})", deleted, cutoff.toLocalDate());
     }
 }

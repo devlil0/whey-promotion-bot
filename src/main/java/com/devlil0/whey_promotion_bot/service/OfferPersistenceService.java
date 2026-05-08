@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class OfferPersistenceService {
@@ -29,13 +31,15 @@ public class OfferPersistenceService {
 
     @Transactional
     public int upsertAll(List<ProductOfferResponse> offers) {
-        // Carrega todos os produtos existentes no banco e os organiza num mapa
-        // para busca rápida por chave "LOJA:ID_EXTERNO"
-        List<ProductOffer> allExisting = offerRepository.findAll();
+        Set<String> stores = offers.stream()
+                .map(ProductOfferResponse::store)
+                .collect(Collectors.toSet());
+
         Map<String, ProductOffer> existing = new HashMap<>();
-        for (ProductOffer p : allExisting) {
-            String key = p.getStore() + ":" + p.getExternalId();
-            existing.put(key, p);
+        for (String store : stores) {
+            for (ProductOffer p : offerRepository.findByStore(store)) {
+                existing.put(p.getStore() + ":" + p.getExternalId(), p);
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();

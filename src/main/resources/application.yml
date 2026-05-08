@@ -7,6 +7,7 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:whey_pass}
     driver-class-name: org.postgresql.Driver
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: false
@@ -77,3 +78,4 @@ promotion:
   discount-threshold: 0.05
   history-days: 7
   min-history-samples: 3
+  history-retention-days: 30
